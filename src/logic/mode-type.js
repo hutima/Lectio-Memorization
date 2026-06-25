@@ -53,6 +53,19 @@
   typeCorrect = (vi) => !this.state.typeReveal[vi] && this.norm(this.state.typeVals[vi]) === this.norm(this.state.passage.words[vi].text);
   // Group every word index by the verse it belongs to ({ verse -> [vi, ...] }).
   typeVerseGroups = () => { const p = this.state.passage; const g = {}; if (p) p.words.forEach((w) => { (g[w.v] = g[w.v] || []).push(w.vi); }); return g; };
+  // Persistent Test progress: a verse you've already mastered (stored per-verse score >=
+  // MASTERY) is pre-filled with its text on entry, so returning to a passage shows the
+  // verses you know already done and you can test only what's left. Returns the typeVals to
+  // seed (called by initModes). A Restart sets _typeNoSeed so it clears instead — the stored
+  // mastery is untouched and is only re-scored if that verse is retyped (checkTypeDone).
+  seedTypeKnown = (passage) => {
+    if (this._typeNoSeed) { this._typeNoSeed = false; return {}; }
+    const p = passage || this.state.passage; if (!p) return {};
+    const cur = this.state.progress[p.version + ' · ' + p.reference] || {}; const vk = cur.verseKnown || {};
+    const vals = {};
+    p.words.forEach((w) => { if ((vk[w.v] || 0) >= this.MASTERY) vals[w.vi] = w.text; });
+    return vals;
+  };
   // Score the Test continuously so partial credit is captured, but assess it PER VERSE.
   // Blanks count as wrong, so a verse's score reflects how much of it you've recalled.
   // Crucially, a verse is only reassessed when it's reattempted — i.e. something is

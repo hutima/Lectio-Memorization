@@ -344,7 +344,11 @@
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
       bankActive: blanks.length ? blanks[0] : null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
       hideAll: false, revealed: {}, revealAllNow: false,
-      typeVals: {}, typeReveal: {}, typeActive: null,
+      // Test mode carries persistent per-passage progress: verses already mastered are
+      // pre-filled so a returning user sees them done and can focus on the rest. A Restart
+      // (resetMode) sets _typeNoSeed to clear them for a fresh self-test without erasing the
+      // stored mastery — see seedTypeKnown.
+      typeVals: this.seedTypeKnown(passage), typeReveal: {}, typeActive: null,
     }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
   };
   // Shared "ease" slider: how many words become blanks (fill + word-bank modes).
@@ -383,6 +387,40 @@
     try { localStorage.removeItem('lectio.cache'); } catch (e) {}
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('clear-cache');
     this.setState({ cacheCount: 0 });
+  };
+
+  // ---------- bundled offline text (KJV / GNT / LXX) ----------
+  // The public-domain texts ship with the app as per-book JSON under data/<dir>/<id>.json
+  // (precached by the service worker), so a passage you've never opened still works with no
+  // network. ESV is never bundled (its terms cap caching, so it stays online + the 500-verse
+  // localStorage cache). label is the cache/version label (KJV/GNT/LXX); the OT↔NT split for
+  // Greek is already resolved into LXX vs GNT by the caller.
+  BUNDLE_DIR = { KJV: 'kjv', GNT: 'gnt', LXX: 'lxx' };
+  bundledPassage = async (label) => {
+    const dir = this.BUNDLE_DIR[label]; if (!dir) return null;
+    const id = this.bookIndex(this.state.book); if (id < 1) return null;
+    let data;
+    try { const r = await fetch('data/' + dir + '/' + id + '.json'); if (!r.ok) return null; data = await r.json(); }
+    catch (e) { return null; }
+    const chap = data && data.chapters && data.chapters[String(this.state.chapter)]; if (!chap) return null;
+    const nums = Object.keys(chap).map((n) => parseInt(n, 10)).filter((n) => n > 0).sort((a, b) => a - b);
+    if (!nums.length) return null;
+    const count = nums[nums.length - 1];
+    const s = Math.max(1, parseInt(this.state.vStart || '1', 10) || 1);
+    const eRaw = (this.state.vEnd || '').trim();
+    const e = eRaw ? (parseInt(eRaw, 10) || s) : count;
+    const whole = s <= 1 && (!eRaw || e >= count);
+    const verses = nums.filter((n) => whole || (n >= s && n <= Math.max(s, e))).map((n) => ({ num: n, text: chap[String(n)] }));
+    return verses.length ? verses : null;
+  };
+  // Try the bundled copy and, if it has the passage, render it. Returns true when handled,
+  // so the live-fetch paths can `if (await this.useBundled(label, ref)) return;` before erroring.
+  useBundled = async (label, ref) => {
+    const verses = await this.bundledPassage(label); if (!verses) return false;
+    this.markSeen(ref);
+    const passage = this.buildPassage(ref, label, verses);
+    this.setState({ loading: false, error: null, offerKjv: false, passage }, () => this.initModes(passage));
+    return true;
   };
 
   // ---------- ESV usage limits ----------
@@ -479,7 +517,7 @@
     try { corpus = localStorage.getItem('lectio.corpus') || ''; ref = localStorage.getItem('lectio.ref') || ''; } catch (e) {}
     if (corpus === 'creeds' && this.state.creedId) { this.setState({ corpus: 'creeds' }, () => { this.loadCreed(); this._booting = false; }); return; }
     if (ref && this.state.book) {
-      const v = this.state.version; const label = v === 'Greek' ? 'GNT' : v; const r = this.buildRef();
+      const v = this.state.version; const label = v === 'Greek' ? (this.bookIndex(this.state.book) < 40 ? 'LXX' : 'GNT') : v; const r = this.buildRef();
       const cached = this.getCached(label, r);
       if (cached) { const p = this.buildPassage(cached.reference, label, cached.verses); this.setState({ passage: p, refInput: r, loadedSig: this.selSig() }, () => { this.initModes(p); this._booting = false; }); return; }
       this._booting = false; this.setState({ refInput: r, loadedSig: this.selSig() }, () => this.runLoad()); return;
@@ -496,7 +534,8 @@
   };
   setVersion = (v) => {
     const upd = { version: v, error: null, offerKjv: false };
-    if (v === 'Greek' && this.bookIndex(this.state.book) < 40) { upd.book = 'Matthew'; upd.chapter = '1'; upd.vStart = '1'; upd.vEnd = ''; }
+    // Greek spans the whole canon now: the Septuagint (LXX) for the Old Testament and the
+    // Tischendorf GNT for the New, so any book is valid — no need to bump OT picks to Matthew.
     // ESV needs a user-supplied API token. Prompt for it the moment ESV is chosen if
     // one isn't saved yet, rather than waiting for a failed load.
     if (v === 'ESV' && !this.state.esvToken.trim()) upd.esvModalOpen = true;
@@ -597,18 +636,22 @@
         this.storePassage('ESV', ref, reference, verses);
       } else if (version === 'Greek') {
         const id = this.bookIndex(this.state.book);
-        if (id < 40) { this.setState({ loading: false, error: 'The Greek New Testament covers Matthew through Revelation. Choose a New Testament book.' }); return; }
+        // Old Testament → Septuagint (LXX); New Testament → Tischendorf GNT. Both come from
+        // bolls.life under their own translation slug; `label` tracks which corpus, so the
+        // localStorage cache and the bundled-offline data file resolve to the right text.
+        const ot = id < 40; const slug = ot ? 'LXX' : 'TISCH'; label = ot ? 'LXX' : 'GNT';
         const ch = this.state.chapter;
         let res;
-        try { res = await fetch('https://bolls.life/get-text/TISCH/' + id + '/' + ch + '/'); }
+        try { res = await fetch('https://bolls.life/get-text/' + slug + '/' + id + '/' + ch + '/'); }
         catch (netErr) {
-          const cached = this.getCached('GNT', ref);
-          if (cached) { const p = this.buildPassage(cached.reference, 'GNT', cached.verses); this.setState({ loading: false, passage: p }, () => this.initModes(p)); return; }
+          const cached = this.getCached(label, ref);
+          if (cached) { const p = this.buildPassage(cached.reference, label, cached.verses); this.setState({ loading: false, passage: p }, () => this.initModes(p)); return; }
+          if (await this.useBundled(label, ref)) return;
           this.setState({ loading: false, error: 'Network error — could not reach the Greek text service.' }); return;
         }
-        if (!res.ok) { this.setState({ loading: false, error: 'Greek text request failed (' + res.status + ').' }); return; }
+        if (!res.ok) { if (await this.useBundled(label, ref)) return; this.setState({ loading: false, error: 'Greek text request failed (' + res.status + ').' }); return; }
         const data = await res.json();
-        if (!Array.isArray(data) || !data.length) { this.setState({ loading: false, error: 'No Greek text found for "' + ref + '".' }); return; }
+        if (!Array.isArray(data) || !data.length) { if (await this.useBundled(label, ref)) return; this.setState({ loading: false, error: 'No Greek text found for "' + ref + '".' }); return; }
         let vs = data.map((v) => ({ num: v.verse, text: this.stripHtml(v.text) })).filter((v) => v.text);
         const count = this.curVerseCount();
         const s = Math.max(1, parseInt(this.state.vStart || '1', 10) || 1);
@@ -617,8 +660,8 @@
         const isWhole = s <= 1 && (!eRaw || (count && e >= count));
         if (!isWhole) vs = vs.filter((v) => v.num >= s && v.num <= Math.max(s, e));
         if (!vs.length) { this.setState({ loading: false, error: 'No verses in that range.' }); return; }
-        reference = ref; label = 'GNT';
-        this.storePassage('GNT', ref, reference, vs);
+        reference = ref;
+        this.storePassage(label, ref, reference, vs);
         verses = vs;
       } else {
         let res;
@@ -626,9 +669,10 @@
         catch (netErr) {
           const cached = this.getCached('KJV', ref);
           if (cached) { const p = this.buildPassage(cached.reference, 'KJV', cached.verses); this.setState({ loading: false, passage: p }, () => this.initModes(p)); return; }
+          if (await this.useBundled('KJV', ref)) return;
           this.setState({ loading: false, error: 'Network error — could not reach the King James service.' }); return;
         }
-        if (!res.ok) { this.setState({ loading: false, error: 'Could not find "' + ref + '" (KJV). Check the reference.' }); return; }
+        if (!res.ok) { if (await this.useBundled('KJV', ref)) return; this.setState({ loading: false, error: 'Could not find "' + ref + '" (KJV). Check the reference.' }); return; }
         const data = await res.json();
         if (!data.verses || !data.verses.length) { this.setState({ loading: false, error: 'No passage found for "' + ref + '".' }); return; }
         reference = data.reference || ref; label = 'KJV';
@@ -662,7 +706,10 @@
     if (learned > 0) parts.push(learned + (learned === 1 ? ' passage learned' : ' passages learned'));
     return parts.join('  ·  ');
   };
-  resetMode = () => { const p = this.state.passage; if (p) this.initModes(p); };
+  // "Restart" in Test mode clears the typed words for a fresh attempt but keeps the stored
+  // per-verse mastery (it's only re-scored when a verse is actually retyped — see
+  // checkTypeDone), so _typeNoSeed suppresses the one re-seed. Other modes just re-init.
+  resetMode = () => { const p = this.state.passage; if (p) { if (this.state.mode === 'type') this._typeNoSeed = true; this.initModes(p); } };
   toggleHints = () => this.setState({ showHints: !this.state.showHints });
   // Scripture display preferences (persisted): font family + size. Size always drives
   // font-size — never CSS zoom — so iOS keeps text crisp and inline inputs aligned.

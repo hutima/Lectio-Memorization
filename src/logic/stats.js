@@ -74,12 +74,28 @@
       else if (p.vs == null) { for (let c = p.ch; c <= (p.chEnd || p.ch); c++) { const n = V[p.bi][c - 1]; if (n) setRange(p.bi, c - 1, 1, n, val); } }
       else { const n = V[p.bi][p.ch - 1] || p.ve; setRange(p.bi, p.ch - 1, Math.max(1, p.vs), Math.min(n, p.ve || p.vs), val); }
     };
+    // Per-verse mastery from Test mode: verseKnown holds a 0–1 score per verse, keyed by the
+    // verse's 0-based position in the passage. Upgrade the verses actually nailed (>= MASTERY)
+    // to "memorized", even when the whole-passage average is still low — so finishing verse 1
+    // lights up verse 1, not the whole chapter. Only single-chapter selections map position →
+    // verse number cleanly; multi-chapter ones keep the coarser whole-passage marking. The
+    // appended reference line is one position past the last verse, so it falls outside [vs,ve].
+    const markVerses = (ref, vk) => {
+      const p = this.parseRef(ref); if (!p || p.ch == null || (p.chEnd && p.chEnd !== p.ch)) return;
+      const n = (V[p.bi] || [])[p.ch - 1]; if (!n) return;
+      const startV = p.vs || 1; const endV = p.ve || n;
+      Object.keys(vk).forEach((k) => {
+        const idx = parseInt(k, 10); if (isNaN(idx) || (vk[k] || 0) < this.MASTERY) return;
+        const v = startV + idx; if (v >= startV && v <= endV && v <= n) setRange(p.bi, p.ch - 1, v, v, 2);
+      });
+    };
     (this.state.seen || []).forEach((r) => mark(r, 1));
     const prog = this.state.progress || {};
     Object.keys(prog).forEach((key) => {
       const p = prog[key]; const ref = key.replace(/^[^·]*·\s*/, '');
       if (p.learned || (p.best || 0) >= this.MASTERY || (p.known || 0) >= this.MASTERY) mark(ref, 2);
       else if ((p.attempts || 0) > 0) mark(ref, 1);
+      if (p.verseKnown) markVerses(ref, p.verseKnown);
     });
     const pre = new Float64Array(total + 1); let seenN = 0, doneN = 0;
     for (let i = 0; i < total; i++) { pre[i + 1] = pre[i] + status[i]; if (status[i] >= 1) seenN++; if (status[i] === 2) doneN++; }

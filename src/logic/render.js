@@ -155,7 +155,7 @@
       ldStart: st.ldStart, onLdStart: this.onLdStart,
       creedHint: isCatechism ? (ldMode ? "Pick a Lord's Day to study its questions together." : 'Pick a question to study.') : 'The full text, stored in the app.',
       versions: ['ESV', 'KJV', 'Greek'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
-      books: st.version === 'Greek' ? this.BOOKS.filter((b, i) => i >= 39) : this.BOOKS, book: st.book, onBook: this.onBook, selectStyle,
+      books: this.BOOKS, book: st.book, onBook: this.onBook, selectStyle,
       chapterSelectStyle: { ...selectStyle, flex: 'none', minWidth: '92px' },
       showChapter: !single,
       chapter: st.chapter, onChapter: this.onChapter,
@@ -207,7 +207,7 @@
       toggleLearned: this.toggleLearned, learnedBtn: this.toggleBtn(prg.learned), learnedLabel: prg.learned ? '✓ Learned' : 'Mark as learned',
 
       // attribution
-      isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', openCopyright: this.openCopyright,
+      isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', isLxx: !!p && p.version === 'LXX', openCopyright: this.openCopyright,
       isCreedDoc: !!p && !!p.kind, creedNote: (p && p.attribution) ? p.attribution : '',
 
       // settings
