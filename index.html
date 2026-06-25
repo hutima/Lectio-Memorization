@@ -41,17 +41,94 @@ input[type=range]{accent-color:var(--accent);}
 
 <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0 16px calc(40px + env(safe-area-inset-bottom));">
 
-  <header style="width:100%;max-width:800px;position:sticky;top:0;z-index:20;background:var(--bg);padding:14px 0 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);">
-    <div onClick="{{ goHome }}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer;">
-      <div style="width:32px;height:32px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fbf8f1;font-family:'Gentium Book Plus',serif;font-size:21px;line-height:1;flex:none;">L</div>
-      <div style="min-width:0;">
-        <div style="font-weight:700;font-size:18px;letter-spacing:.2px;">Lectio</div>
-        <div style="font-size:11px;color:var(--muted);margin-top:1px;letter-spacing:.3px;">Hide his word in your heart</div>
+  <div style="width:100%;max-width:800px;position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);">
+    <header style="padding:14px 0 12px;display:flex;align-items:center;gap:12px;">
+      <div onClick="{{ goHome }}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer;">
+        <div style="width:32px;height:32px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fbf8f1;font-family:'Gentium Book Plus',serif;font-size:21px;line-height:1;flex:none;">L</div>
+        <div style="min-width:0;">
+          <div style="font-weight:700;font-size:18px;letter-spacing:.2px;">Lectio</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px;letter-spacing:.3px;">Hide his word in your heart</div>
+        </div>
       </div>
-    </div>
-    <button onClick="{{ cycleTheme }}" style="{{ chromeBtn }}">{{ themeLabel }}</button>
-    <button onClick="{{ openSettings }}" style="{{ chromeBtn }}">Settings</button>
-  </header>
+      <button onClick="{{ cycleTheme }}" style="{{ chromeBtn }}">{{ themeLabel }}</button>
+      <button onClick="{{ openSettings }}" style="{{ chromeBtn }}">Settings</button>
+    </header>
+
+    <sc-if value="{{ showFooter }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ footerStyle }}">
+        <div style="{{ footerInner }}">
+
+          <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
+              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+              <span style="flex:1;"></span>
+              <span style="font-size:13px;color:var(--muted);">Tap a word to peek.</span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+              <span style="flex:1;"></span>
+              <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isBank }}" hint-placeholder-val="{{ false }}">
+            <sc-if value="{{ bankMc }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <button onClick="{{ bankPrev }}" style="{{ bankPrevBtn }}">‹ Prev</button>
+                  <button onClick="{{ bankNext }}" style="{{ bankNextBtn }}">Next ›</button>
+                  <span style="font-size:13px;color:var(--muted);">{{ bankActiveLabel }}</span>
+                  <span style="flex:1;"></span>
+                  <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;align-items:center;">
+                  <sc-for list="{{ bankOptions }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.text }}</button></sc-for>
+                  <sc-if value="{{ optionsLoading }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);">Finding similar words…</span></sc-if>
+                </div>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                  <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+                  <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{ bankTray }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;max-height:34vh;overflow:auto;">
+                  <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankTrayBtn }}">{{ b.text }}</button></sc-for>
+                  <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                  <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+                  <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+                  <span style="flex:1;"></span>
+                  <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
+                </div>
+              </div>
+            </sc-if>
+          </sc-if>
+
+          <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck="false" inputMode="text" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
+                <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
+                <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+                <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+              </div>
+              <span style="font-size:13px;color:var(--muted);">{{ typeProgress }} · Backspace returns to the last word.</span>
+            </div>
+          </sc-if>
+
+        </div>
+      </div>
+    </sc-if>
+  </div>
 
   <main style="width:100%;max-width:800px;display:flex;flex-direction:column;gap:16px;padding-top:18px;">
 
@@ -153,7 +230,7 @@ input[type=range]{accent-color:var(--accent);}
     </sc-if>
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
-    <div style="display:flex;flex-direction:column;gap:16px;padding-bottom:calc(230px + env(safe-area-inset-bottom));">
+    <div style="display:flex;flex-direction:column;gap:16px;padding-bottom:calc(40vh + env(safe-area-inset-bottom));">
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
     </div>
@@ -205,81 +282,6 @@ input[type=range]{accent-color:var(--accent);}
     </sc-if>
 
   </main>
-
-  <sc-if value="{{ showFooter }}" hint-placeholder-val="{{ false }}">
-    <div style="{{ footerStyle }}">
-      <div style="{{ footerInner }}">
-
-        <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
-            <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-            <span style="flex:1;"></span>
-            <span style="font-size:13px;color:var(--muted);">Tap a word to peek.</span>
-          </div>
-        </sc-if>
-
-        <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-            <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-            <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-            <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-            <span style="flex:1;"></span>
-            <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
-          </div>
-        </sc-if>
-
-        <sc-if value="{{ isBank }}" hint-placeholder-val="{{ false }}">
-          <sc-if value="{{ bankMc }}" hint-placeholder-val="{{ true }}">
-            <div style="display:flex;flex-direction:column;gap:10px;">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <button onClick="{{ bankPrev }}" style="{{ bankPrevBtn }}">‹ Prev</button>
-                <button onClick="{{ bankNext }}" style="{{ bankNextBtn }}">Next ›</button>
-                <span style="font-size:13px;color:var(--muted);">{{ bankActiveLabel }}</span>
-                <span style="flex:1;"></span>
-                <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
-              </div>
-              <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;align-items:center;">
-                <sc-for list="{{ bankOptions }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.text }}</button></sc-for>
-                <sc-if value="{{ optionsLoading }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);">Finding similar words…</span></sc-if>
-              </div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-                <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-              </div>
-            </div>
-          </sc-if>
-          <sc-if value="{{ bankTray }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;flex-direction:column;gap:10px;">
-              <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;max-height:34vh;overflow:auto;">
-                <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankTrayBtn }}">{{ b.text }}</button></sc-for>
-                <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
-              </div>
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-                <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-                <span style="flex:1;"></span>
-                <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
-              </div>
-            </div>
-          </sc-if>
-        </sc-if>
-
-        <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
-          <div style="display:flex;flex-direction:column;gap:8px;">
-            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck="false" inputMode="text" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
-              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
-              <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-            </div>
-            <span style="font-size:13px;color:var(--muted);">{{ typeProgress }} · Backspace returns to the last word.</span>
-          </div>
-        </sc-if>
-
-      </div>
-    </div>
-  </sc-if>
 
   <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeSettings }}" style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:40;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto;">
@@ -1301,9 +1303,12 @@ class Component extends DCLogic {
     const showEase = !!p && (st.mode === 'hidden' || st.mode === 'bank');
     const easeLabel = this.allBlank() ? 'Every word blank' : Math.round(st.blankPct * 100) + '% blank';
 
-    // pinned footer that floats above the iOS keyboard (translated by kbInset)
+    // The practice control bar lives in the sticky header region at the TOP of the
+    // screen — not pinned to the bottom. On iOS the bottom-pinned bar was wedged
+    // away from the keyboard by Safari's bottom URL bar; anchoring it to the top
+    // keeps it reachable and stable while typing, independent of the keyboard.
     const showFooter = st.view === 'practice' && !!p;
-    const footerStyle = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 30, transform: 'translateY(-' + (st.kbInset || 0) + 'px)', background: 'var(--bg)', borderTop: '1px solid var(--line)', boxShadow: '0 -6px 20px rgba(0,0,0,.07)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' };
+    const footerStyle = { borderTop: '1px solid var(--line)', padding: '8px 0 4px' };
     const footerInner = { width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '10px' };
     // Reserve room so the passage's tail can scroll clear of the pinned footer.
     const practicePad = { paddingBottom: 'calc(230px + env(safe-area-inset-bottom))' };

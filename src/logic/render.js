@@ -54,9 +54,12 @@
     const showEase = !!p && (st.mode === 'hidden' || st.mode === 'bank');
     const easeLabel = this.allBlank() ? 'Every word blank' : Math.round(st.blankPct * 100) + '% blank';
 
-    // pinned footer that floats above the iOS keyboard (translated by kbInset)
+    // The practice control bar lives in the sticky header region at the TOP of the
+    // screen — not pinned to the bottom. On iOS the bottom-pinned bar was wedged
+    // away from the keyboard by Safari's bottom URL bar; anchoring it to the top
+    // keeps it reachable and stable while typing, independent of the keyboard.
     const showFooter = st.view === 'practice' && !!p;
-    const footerStyle = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 30, transform: 'translateY(-' + (st.kbInset || 0) + 'px)', background: 'var(--bg)', borderTop: '1px solid var(--line)', boxShadow: '0 -6px 20px rgba(0,0,0,.07)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' };
+    const footerStyle = { borderTop: '1px solid var(--line)', padding: '8px 0 4px' };
     const footerInner = { width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '10px' };
     // Reserve room so the passage's tail can scroll clear of the pinned footer.
     const practicePad = { paddingBottom: 'calc(230px + env(safe-area-inset-bottom))' };
