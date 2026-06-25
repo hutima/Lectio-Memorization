@@ -167,12 +167,52 @@
     try { requestAnimationFrame(() => { const el = document.querySelector('[data-active="1"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }); } catch (e) {}
   };
 
-  // ---------- dictionary (Datamuse) ----------
+  // ---------- dictionary (Datamuse + offline fallback) ----------
   // Used to build word-bank distractors: similar-meaning words, biased to the same
-  // part of speech. Free, no key. Falls back to passage words when offline.
-  fetchJson = async (url) => { try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); } catch (e) { return null; } };
+  // part of speech. Free, no key. The fetch is time-boxed so a slow or blocked
+  // network can't leave the "Finding similar words…" spinner hanging — on timeout
+  // or failure we fall back to the offline, part-of-speech-aware pools below.
+  fetchJson = async (url, ms = 3000) => {
+    try {
+      const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const t = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, ms) : null;
+      const r = await fetch(url, ctrl ? { signal: ctrl.signal } : undefined);
+      if (t) clearTimeout(t);
+      if (!r.ok) return null; return await r.json();
+    } catch (e) { return null; }
+  };
   posOf = (tags) => { if (!tags) return null; for (const t of tags) if (t === 'n' || t === 'v' || t === 'adj' || t === 'adv') return t; return null; };
   matchCase = (sample, word) => /^[A-Z]/.test(sample || '') ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+
+  // Curated common-word pools grouped by part of speech, so word-bank distractors
+  // stay plausible even with no network. 'fn' holds function words (pronouns,
+  // prepositions, articles) — the short, common words a verse leans on most.
+  POS_POOL = {
+    n: ['light','water','heart','hand','word','king','land','house','name','day','night','field','tree','stone','mountain','river','voice','face','soul','spirit','fire','wind','rock','gate','road','seed','bread','wine','sheep','staff','crown','throne','servant','master','father','mother','child','brother','friend','enemy','city','nation','people','glory','mercy','grace','truth','peace','joy','hope','faith','love','fear','death','life','power','strength','wisdom','valley','shadow','table','oil','cup','soul','path','sake','house'],
+    v: ['walk','run','speak','call','hear','see','know','make','give','take','come','go','stand','sit','rise','fall','keep','hold','lead','follow','seek','find','build','break','send','bring','turn','open','show','tell','ask','answer','believe','remember','gather','bless','praise','sing','pray','rest','dwell','rule','reign','serve','save','heal','teach','trust','wait','flee','want','lie','restore','prepare','anoint','comfort','dwell','follow'],
+    adj: ['good','great','holy','righteous','wicked','strong','weak','high','low','deep','wide','bright','dark','clean','pure','wise','foolish','rich','poor','glad','old','young','new','ancient','mighty','gentle','quiet','still','green','golden','heavy','sweet','bitter','faithful','true','living','eternal'],
+    adv: ['quickly','slowly','surely','gently','greatly','wholly','freely','boldly','quietly','gladly','soon','again','always','never','often','here','there','now','then','forever','together','within','above','below','near','far','well','yea'],
+    fn: ['the','and','but','for','with','from','unto','into','upon','before','after','over','under','through','among','beside','toward','against','they','them','their','thou','thee','thy','him','her','his','our','your','this','that','these','those','which','whom','where','when','shall','will','may','not','all','my','me','he','is','in','of','a'],
+  };
+  // Reverse index (normalized word -> pos), built once.
+  posIndex = () => {
+    if (this._posIndex) return this._posIndex;
+    const idx = {}; const pools = this.POS_POOL;
+    Object.keys(pools).forEach((k) => pools[k].forEach((w) => { const n = this.norm(w); if (n && !(n in idx)) idx[n] = k; }));
+    return (this._posIndex = idx);
+  };
+  // Best-effort part of speech for a word with no Datamuse data: dictionary lookup
+  // first, then a few high-signal suffix heuristics.
+  localPos = (word) => {
+    const n = this.norm(word); if (!n) return null;
+    const idx = this.posIndex(); if (idx[n]) return idx[n];
+    if (n.length > 3 && /ly$/.test(n)) return 'adv';
+    if (/(ing|eth|est)$/.test(n) || (/ed$/.test(n) && n.length > 3)) return 'v';
+    if (/(ness|tion|sion|ment|ity|ship|hood|ance|ence)$/.test(n)) return 'n';
+    if (/(ous|ful|less|able|ible|ive|ic|ish)$/.test(n)) return 'adj';
+    return null;
+  };
+  posPool = (pos) => { const p = this.POS_POOL; if (pos && p[pos]) return p[pos]; return p.n.concat(p.v, p.adj); };
 
   // ---------- text utils ----------
   norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
@@ -225,6 +265,7 @@
     const seed = this.hash(passage.reference + '|' + passage.words.length);
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
+    this._revealPrev = null;
     this.setState({
       blankList: blanks, bank,
       hiddenVals: {}, bankFill: {},

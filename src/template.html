@@ -174,7 +174,7 @@
         <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
-            <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
             <span style="flex:1;"></span>
             <span style="font-size:13px;color:var(--muted);">Tap a word to peek.</span>
           </div>
@@ -184,7 +184,7 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
             <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-            <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
             <span style="flex:1;"></span>
             <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
           </div>
@@ -206,7 +206,7 @@
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-                <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+                <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
               </div>
             </div>
           </sc-if>
@@ -218,7 +218,7 @@
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-                <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+                <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
                 <span style="flex:1;"></span>
                 <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
               </div>
@@ -229,10 +229,10 @@
         <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;flex-direction:column;gap:8px;">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" spellCheck="false" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
+              <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck="false" inputMode="text" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
               <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
               <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-              <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
             </div>
             <span style="font-size:13px;color:var(--muted);">{{ typeProgress }} · Backspace returns to the last word.</span>
           </div>

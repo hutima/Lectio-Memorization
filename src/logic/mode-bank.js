@@ -36,14 +36,22 @@
     this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: opts } });
   };
   // Assemble the option list: correct answer + up to 4 distractors, same part of
-  // speech first, topped up from passage words, then shuffled (seeded, stable).
+  // speech first. Sources, in order: Datamuse "similar" words (when online), then
+  // the offline part-of-speech pool (so common words still get plausible, same-POS
+  // distractors with no network), then other passage words. Finally shuffled.
   buildOptions = (correct, sim, targetPos, seed) => {
     const cn = this.norm(correct); const seen = new Set([cn]); const cand = [];
     const push = (w) => { if (!w) return; const n = this.norm(w); if (!n || seen.has(n)) return; if (/\s/.test(w)) return; seen.add(n); cand.push(this.matchCase(correct, w)); };
+    const pos = targetPos || this.localPos(correct);
     if (sim) {
       const same = [], other = [];
-      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; const pos = this.posOf(d.tags); (targetPos && pos === targetPos ? same : other).push(d.word); });
+      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; const p = this.posOf(d.tags); (pos && p === pos ? same : other).push(d.word); });
       same.forEach(push); other.forEach(push);
+    }
+    if (cand.length < 4) {
+      const pool = this.posPool(pos).slice(); const r = this.rng(seed ^ 0x1f3b);
+      for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));[pool[i], pool[j]] = [pool[j], pool[i]]; }
+      pool.forEach((w) => { if (cand.length < 4) push(w); });
     }
     if (cand.length < 4) {
       const words = (this.state.passage.words || []).map((w) => w.text);
@@ -91,17 +99,33 @@
     const correct = blanks.filter((vi) => this.norm(this.state.bank.items[this.state.bankFill[vi]].text) === this.norm(p.words[vi].text)).length;
     this.recordResult(correct / blanks.length);
   };
-  // The tray only exposes tokens belonging to the current verse (the one holding the
-  // next empty slot) and the verse after it, so an all-blank chapter stays manageable.
+  // The tray only exposes words the current verse (the one holding the next empty
+  // slot) and the verse after it still need, so an all-blank chapter stays
+  // manageable. Tiles are fungible by text (case-insensitive): a word is offered as
+  // long as some unfilled slot in the window needs it, and ANY unused tile of that
+  // text satisfies it — so a duplicate word from a different position is never
+  // stranded out of the visible window.
   trayWindow = () => {
     const st = this.state; const p = st.passage; if (!p || !st.bank) return [];
-    const used = new Set(Object.values(st.bankFill).filter((x) => x != null));
     const firstSlot = st.blankList.find((vi) => st.bankFill[vi] == null);
     if (firstSlot == null) return [];
     const v0 = p.words[firstSlot].v;
-    return st.bank.order
-      .filter((id) => !used.has(id) && (p.words[st.bank.items[id].vi].v === v0 || p.words[st.bank.items[id].vi].v === v0 + 1))
-      .map((id) => ({ text: st.bank.items[id].text, onClick: this.tapGuard('tray' + id, () => this.placeBank(id)) }));
+    const need = {};
+    st.blankList.forEach((vi) => {
+      if (st.bankFill[vi] != null) return;
+      if (p.words[vi].v !== v0 && p.words[vi].v !== v0 + 1) return;
+      const n = this.norm(p.words[vi].text); need[n] = (need[n] || 0) + 1;
+    });
+    const used = new Set(Object.values(st.bankFill).filter((x) => x != null));
+    const shown = {}; const out = [];
+    st.bank.order.forEach((id) => {
+      if (used.has(id)) return;
+      const n = this.norm(st.bank.items[id].text);
+      if (!need[n] || (shown[n] || 0) >= need[n]) return;
+      shown[n] = (shown[n] || 0) + 1;
+      out.push({ text: st.bank.items[id].text, onClick: this.tapGuard('tray' + id, () => this.placeBank(id)) });
+    });
+    return out;
   };
 
   // ---- shared rendering ----
