@@ -31,7 +31,7 @@
     typeVals: {}, typeReveal: {}, typeActive: null,
     progress: {}, streak: { count: 0, last: null },
     cacheCount: 0, usageToday: 0,
-    updateReady: false,
+    updateReady: false, updateMsg: '',
     kbInset: 0,
   };
 
@@ -118,6 +118,7 @@
     if (this._mm) this._mm.removeEventListener('change', this._onMM);
     if (this._onVisible) document.removeEventListener('visibilitychange', this._onVisible);
     if (this._vv && this._onVV) { this._vv.removeEventListener('resize', this._onVV); this._vv.removeEventListener('scroll', this._onVV); }
+    if (this._updTimer) clearInterval(this._updTimer);
   }
 
   // ---------- app updates (service worker) ----------
@@ -133,6 +134,9 @@
     navigator.serviceWorker.register('sw.js').then((reg) => {
       if (!reg) return;
       this._swReg = reg;
+      // Poll for a fresh build periodically — a long-lived foreground PWA session may
+      // otherwise sit on stale code; the focus + mode-switch checks cover the rest.
+      this._updTimer = setInterval(() => this.runUpdateCheck(false), 1800000);
       // An update could already be waiting from a previous visit.
       if (reg.waiting && navigator.serviceWorker.controller) this.setState({ updateReady: true });
       reg.addEventListener('updatefound', () => {
@@ -153,6 +157,19 @@
     else { window.location.reload(); }
   };
   dismissUpdate = () => this.setState({ updateReady: false });
+  // Manual / background "check for updates": ping the worker for a fresh build. A new
+  // build installs and trips the updatefound listener above (which shows the refresh
+  // modal); the manual path also reports the outcome in Settings.
+  runUpdateCheck = (manual) => {
+    const reg = this._swReg;
+    if (!('serviceWorker' in navigator) || !reg) { if (manual) this.setState({ updateMsg: 'Updates aren’t available here.' }); return; }
+    if (manual) this.setState({ updateMsg: 'Checking…' });
+    Promise.resolve().then(() => reg.update()).then(() => {
+      if (!manual) return;
+      this.setState({ updateMsg: (reg.installing || reg.waiting) ? 'A new version is downloading — you’ll be prompted to refresh.' : 'You’re on the latest version.' });
+    }).catch(() => { if (manual) this.setState({ updateMsg: 'Couldn’t check just now — try again later.' }); });
+  };
+  checkForUpdates = () => this.runUpdateCheck(true);
 
   // ---------- theme ----------
   applyTheme = (theme) => {
@@ -195,6 +212,11 @@
     } catch (e) { return null; }
   };
   posOf = (tags) => { if (!tags) return null; for (const t of tags) if (t === 'n' || t === 'v' || t === 'adj' || t === 'adv') return t; return null; };
+  // Datamuse frequency tag ("f:NN.NN" — occurrences per million words). Word-bank
+  // distractors below this floor are dropped so we don't offer junk or archaic forms
+  // ("elr", "wottest") that the reader would never mistake for the answer.
+  MIN_OPT_FREQ = 1;
+  freqOf = (tags) => { if (!tags) return 0; for (const t of tags) if (t.indexOf('f:') === 0) return parseFloat(t.slice(2)) || 0; return 0; };
   matchCase = (sample, word) => /^[A-Z]/.test(sample || '') ? word.charAt(0).toUpperCase() + word.slice(1) : word;
 
   // Curated common-word pools grouped by part of speech, so word-bank distractors
@@ -246,13 +268,23 @@
   // opts carries non-Scripture metadata (kind/attribution/title) used for layout +
   // the copyright line; it is absent (→ nulls) for ordinary Bible passages.
   buildPassage = (reference, version, verses, opts = {}) => {
+    reference = this.fixBookName(reference);
     let vi = 0; const words = [];
     const vs = verses.map((v, vIdx) => {
       const segs = this.splitSegs((v.text || '').replace(/\s+/g, ' ').trim());
       segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vIdx }); vi++; } });
       return { num: v.num, head: v.head || null, segs };
     });
-    return { reference, version, verses: vs, words, kind: opts.kind || null, attribution: opts.attribution || null, title: opts.title || null };
+    // Scripture passages append the reference as a final memory line ("Psalm 23:1 to 5")
+    // so it's practiced along with the text in every mode — its words join the flat
+    // `words` list, so they hide/blank/score like the rest. Creeds/catechisms carry their
+    // own attribution and pass opts.kind, so they skip this.
+    let refSegs = null;
+    if (!opts.kind && reference) {
+      refSegs = this.splitSegs(this.refToText(reference));
+      refSegs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vs.length }); vi++; } });
+    }
+    return { reference, version, verses: vs, words, refSegs, kind: opts.kind || null, attribution: opts.attribution || null, title: opts.title || null };
   };
   parseEsv = (text) => {
     text = (text || '').replace(/\r/g, '');
@@ -372,6 +404,11 @@
       }
     } catch (e) {}
   };
+  // The book list keeps the canonical plural "Psalms"; a single psalm reads "Psalm 23".
+  fixBookName = (ref) => (ref || '').replace(/\bPsalms\b/g, 'Psalm');
+  // Spoken-style reference for the appended memory line: "Psalm 23:1-5" → "Psalm 23:1 to 5"
+  // (a whole chapter stays "Psalm 23" — buildRef omits the verse range there).
+  refToText = (ref) => this.fixBookName(ref).replace(/(\d)\s*[–—-]\s*(\d)/, '$1 to $2');
   buildRef = () => {
     const meta = this.bookMeta(this.state.book); const single = meta.chapters === 1; const ch = this.state.chapter;
     const count = this.curVerseCount();
@@ -379,10 +416,10 @@
     const eRaw = (this.state.vEnd || '').trim();
     const e = eRaw ? (parseInt(eRaw, 10) || s) : (count || null);
     const whole = s <= 1 && (e === null || (count && e >= count));
-    if (whole) return single ? meta.name : meta.name + ' ' + ch;
-    const ee = e === null ? s : Math.max(s, e);
-    const range = ee !== s ? s + '-' + ee : '' + s;
-    return single ? meta.name + ' ' + range : meta.name + ' ' + ch + ':' + range;
+    let out;
+    if (whole) out = single ? meta.name : meta.name + ' ' + ch;
+    else { const ee = e === null ? s : Math.max(s, e); const range = ee !== s ? s + '-' + ee : '' + s; out = single ? meta.name + ' ' + range : meta.name + ' ' + ch + ':' + range; }
+    return this.fixBookName(out);
   };
   isWholeSel = () => { const count = this.curVerseCount(); const s = parseInt(this.state.vStart || '1', 10) || 1; const eRaw = (this.state.vEnd || '').trim(); return s <= 1 && (!eRaw || (count && parseInt(eRaw, 10) >= count)); };
   persistSel = () => { try { localStorage.setItem('lectio.sel', JSON.stringify({ book: this.state.book, chapter: this.state.chapter, vStart: this.state.vStart, vEnd: this.state.vEnd })); } catch (e) {} };
@@ -547,9 +584,9 @@
   };
 
   // ---------- mode navigation ----------
-  setMode = (m) => this.setState({ mode: m }, () => { if (m === 'bank' && !this.allBlank()) this.ensureOptions(); });
+  setMode = (m) => { this.runUpdateCheck(false); this.setState({ mode: m }, () => { if (m === 'bank' && !this.allBlank()) this.ensureOptions(); }); };
   goHome = () => this.setState({ view: 'home' });
-  startMode = (m) => { const p = this.state.passage; this.setState({ mode: m, view: 'practice' }, () => { if (p) this.initModes(p); }); };
+  startMode = (m) => { const p = this.state.passage; this.runUpdateCheck(false); this.setState({ mode: m, view: 'practice' }, () => { if (p) this.initModes(p); }); };
   startHide = () => this.startMode('hide');
   startFill = () => this.startMode('hidden');
   startBank = () => this.startMode('bank');
@@ -597,7 +634,7 @@
   };
 
   // ---------- settings ----------
-  openSettings = () => this.setState({ settingsOpen: true });
+  openSettings = () => this.setState({ settingsOpen: true, updateMsg: '' });
   closeSettings = () => this.setState({ settingsOpen: false });
   openCopyright = () => this.setState({ copyrightOpen: true });
   closeCopyright = () => this.setState({ copyrightOpen: false });
@@ -623,3 +660,8 @@
   seg = (active) => ({ padding: '7px 14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: active ? 'var(--accent)' : 'transparent', color: active ? '#fbf8f1' : 'var(--muted)' });
   tab = (active) => ({ padding: '9px 15px', borderRadius: '10px', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line)'), cursor: 'pointer', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', background: active ? 'var(--accent-soft)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--text)' });
   toggleBtn = (active) => ({ padding: '9px 14px', borderRadius: '10px', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line)'), background: active ? 'var(--accent-soft)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--muted)', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' });
+  // Practice-mode selector: a full-width 3-way segmented control (modeSeg) for the
+  // no-typing modes, plus a distinct, full-width "Test" button (testTab) for the graded
+  // mode. modeSeg flexes so the three segments share the row evenly on phone or desktop.
+  modeSeg = (active) => ({ flex: 1, minWidth: 0, padding: '9px 8px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: 'clamp(12px,3.1vw,14px)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', background: active ? 'var(--accent)' : 'transparent', color: active ? '#fbf8f1' : 'var(--muted)', touchAction: 'manipulation' });
+  testTab = (active) => ({ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--test)', cursor: 'pointer', fontSize: '15px', fontWeight: 700, letterSpacing: '.3px', whiteSpace: 'nowrap', background: active ? 'var(--test)' : 'var(--test-soft)', color: active ? '#fbf8f1' : 'var(--test)', touchAction: 'manipulation' });

@@ -19,14 +19,6 @@
       <div style="{{ footerStyle }}">
         <div style="{{ footerInner }}">
 
-          <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
-              <span style="flex:1;"></span>
-              <span style="font-size:13px;color:var(--muted);">Tap a word to peek.</span>
-            </div>
-          </sc-if>
-
           <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
               <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
@@ -65,9 +57,11 @@
     </sc-if>
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;align-items:center;gap:10px;padding-top:4px;">
-        <button onClick="{{ goHome }}" style="{{ ghostBtn }}">‹ All modes</button>
-        <span style="font-size:13px;color:var(--muted);">{{ currentModeName }}</span>
+      <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px;">
+        <div style="display:flex;gap:3px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;">
+          <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+        </div>
+        <button onClick="{{ selectTest }}" style="{{ testTabStyle }}">Test</button>
       </div>
     </sc-if>
 
@@ -185,14 +179,8 @@
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
     <div style="display:flex;flex-direction:column;gap:16px;{{ practicePad }};">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
-    </div>
-
     <sc-if value="{{ hasPassage }}" hint-placeholder-val="{{ true }}">
-      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
-        <h2 style="margin:0;font-family:'Gentium Book Plus',serif;font-size:25px;font-weight:700;">{{ reference }}</h2>
-        <span style="flex:1;"></span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-size:13px;color:var(--muted);">{{ modeHint }}</span>
       </div>
     </sc-if>
@@ -241,9 +229,19 @@
 
   </main>
 
-  <sc-if value="{{ showBankBar }}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{ showBottomBar }}" hint-placeholder-val="{{ false }}">
     <div style="{{ bankBarStyle }}">
       <div style="{{ footerInner }}">
+        <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <button onClick="{{ toggleHideAll }}" style="{{ hideBtnStyle }}">{{ hideToggleLabel }}</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <sc-if value="{{ hasRevealed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearRevealed }}" style="{{ ghostBtn }}">Clear peeks</button></sc-if>
+              <span style="flex:1;"></span>
+              <span style="font-size:13px;color:var(--muted);">Tap a word to peek or hide it.</span>
+            </div>
+          </div>
+        </sc-if>
         <sc-if value="{{ bankMc }}" hint-placeholder-val="{{ true }}">
           <div style="display:flex;flex-direction:column;gap:10px;">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -333,6 +331,15 @@
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onClick="{{ clearCache }}" style="{{ ghostBtn }}">Clear cached Scripture</button>
             <button onClick="{{ openCopyright }}" style="{{ ghostBtn }}">ESV copyright</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-weight:600;font-size:14px;">App updates</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">Lectio updates in the background and asks before refreshing. You can also check right now.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ checkForUpdates }}" style="{{ ghostBtn }}">Check for updates</button>
+            <span style="font-size:12px;color:var(--muted);">{{ updateMsg }}</span>
           </div>
         </div>
 

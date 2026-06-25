@@ -30,7 +30,7 @@
     // hold the "Finding similar words…" spinner for long. Whatever hasn't answered
     // by then is dropped and buildOptions falls back to the offline POS dictionary.
     const [sim, posData] = await Promise.all([
-      this.fetchJson('https://api.datamuse.com/words?ml=' + q + '&md=p&max=30', 2000),
+      this.fetchJson('https://api.datamuse.com/words?ml=' + q + '&md=pf&max=30', 2000),
       this.fetchJson('https://api.datamuse.com/words?sp=' + q + '&md=p&max=1', 2000),
     ]);
     const targetPos = posData && posData[0] ? this.posOf(posData[0].tags) : null;
@@ -38,23 +38,27 @@
     this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: opts } });
   };
   // Assemble the option list: correct answer + up to 4 distractors, same part of
-  // speech first. Sources, in order: Datamuse "similar" words (when online), then
-  // the offline part-of-speech pool (so common words still get plausible, same-POS
-  // distractors with no network), then other passage words. Finally shuffled.
+  // speech first. Sources, in order: Datamuse "similar" words filtered to the same POS
+  // and a sane frequency (no junk/archaic forms), then the curated offline POS pool,
+  // then any leftover (cross-POS) Datamuse words, then other passage words — so a
+  // function word like "your" draws {thou, thy, his, our…} instead of "elr"/"per".
+  // Finally shuffled.
   buildOptions = (correct, sim, targetPos, seed) => {
     const cn = this.norm(correct); const seen = new Set([cn]); const cand = [];
     const push = (w) => { if (!w) return; const n = this.norm(w); if (!n || seen.has(n)) return; if (/\s/.test(w)) return; seen.add(n); cand.push(this.matchCase(correct, w)); };
     const pos = targetPos || this.localPos(correct);
+    const other = [];
     if (sim) {
-      const same = [], other = [];
-      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; const p = this.posOf(d.tags); (pos && p === pos ? same : other).push(d.word); });
-      same.forEach(push); other.forEach(push);
+      const same = [];
+      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; if (this.freqOf(d.tags) < this.MIN_OPT_FREQ) return; const p = this.posOf(d.tags); (pos && p === pos ? same : other).push(d.word); });
+      same.forEach(push);
     }
     if (cand.length < 4) {
       const pool = this.posPool(pos).slice(); const r = this.rng(seed ^ 0x1f3b);
       for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));[pool[i], pool[j]] = [pool[j], pool[i]]; }
       pool.forEach((w) => { if (cand.length < 4) push(w); });
     }
+    if (cand.length < 4) other.forEach((w) => { if (cand.length < 4) push(w); });
     if (cand.length < 4) {
       const words = (this.state.passage.words || []).map((w) => w.text);
       const r = this.rng(seed ^ 0x51ed); const sh = words.slice();
