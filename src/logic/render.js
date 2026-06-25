@@ -108,7 +108,9 @@
 
       // pinned footer
       showFooter, footerStyle, footerInner, practicePad, navBtn,
-      revealAll: this.revealAll, resetMode: this.resetMode,
+      revealAll: this.revealAll, toggleRevealAll: this.toggleRevealAll,
+      revealAllLabel: st.revealAllNow ? 'Hide again' : 'Reveal all',
+      resetMode: this.resetMode,
       toggleHints: this.toggleHints, hintsBtn: this.toggleBtn(st.showHints), hintsLabel: st.showHints ? 'Hints on' : 'Hints off',
 
       // status

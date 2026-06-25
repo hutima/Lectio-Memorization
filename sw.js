@@ -1,5 +1,5 @@
 /* Lectio service worker — app-shell + font caching. Scripture text is cached in localStorage by the app (ESV capped at 500 verses per terms), never here. */
-const CACHE = 'lectio-shell-v5';
+const CACHE = 'lectio-shell-v6';
 const ASSETS = [
   './',
   './index.html',

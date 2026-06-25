@@ -9,6 +9,18 @@
     const blanks = this.state.blankList || []; const i = blanks.indexOf(vi);
     for (let j = i + 1; j < blanks.length; j++) { const el = document.querySelector('[data-blank="' + blanks[j] + '"]'); if (el) { el.focus(); if (el.select) el.select(); return; } }
   };
+  // Backspace on an empty blank steps focus back to the previous blank (mirrors the
+  // typing mode) so corrections flow backwards without reaching for the next field.
+  focusPrevBlank = (vi) => {
+    const blanks = this.state.blankList || []; const i = blanks.indexOf(vi);
+    for (let j = i - 1; j >= 0; j--) {
+      const el = document.querySelector('[data-blank="' + blanks[j] + '"]');
+      if (el) { el.focus(); const v = el.value || ''; try { el.setSelectionRange(v.length, v.length); } catch (_) {} return; }
+    }
+  };
+  onBlankKey = (vi, e) => {
+    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevBlank(vi); }
+  };
   onBlankChange = (vi, val) => {
     const p = this.state.passage; const cur = p ? p.words[vi].text : '';
     const trailingSpace = /\s$/.test(val);
@@ -33,9 +45,10 @@
     return h('input', {
       key, 'data-blank': vi, value: val,
       onChange: (e) => this.onBlankChange(vi, e.target.value),
+      onKeyDown: (e) => this.onBlankKey(vi, e),
       // Tapping a blank focuses it directly; keep it visible above the keyboard.
       onFocus: (e) => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} },
-      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off',
+      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
       style: { font: 'inherit', fontFamily: "'Gentium Book Plus',serif", width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px', touchAction: 'manipulation' },
     });
   };

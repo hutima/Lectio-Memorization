@@ -213,7 +213,7 @@ input[type=range]{accent-color:var(--accent);}
         <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
-            <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
             <span style="flex:1;"></span>
             <span style="font-size:13px;color:var(--muted);">Tap a word to peek.</span>
           </div>
@@ -223,7 +223,7 @@ input[type=range]{accent-color:var(--accent);}
           <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
             <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
             <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-            <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
             <span style="flex:1;"></span>
             <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
           </div>
@@ -245,7 +245,7 @@ input[type=range]{accent-color:var(--accent);}
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
                 <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-                <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+                <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
               </div>
             </div>
           </sc-if>
@@ -257,7 +257,7 @@ input[type=range]{accent-color:var(--accent);}
               </div>
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-                <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+                <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
                 <span style="flex:1;"></span>
                 <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
               </div>
@@ -268,10 +268,10 @@ input[type=range]{accent-color:var(--accent);}
         <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
           <div style="display:flex;flex-direction:column;gap:8px;">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-              <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" spellCheck="false" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
+              <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck="false" inputMode="text" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
               <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
               <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-              <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
             </div>
             <span style="font-size:13px;color:var(--muted);">{{ typeProgress }} · Backspace returns to the last word.</span>
           </div>
@@ -536,12 +536,52 @@ class Component extends DCLogic {
     try { requestAnimationFrame(() => { const el = document.querySelector('[data-active="1"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }); } catch (e) {}
   };
 
-  // ---------- dictionary (Datamuse) ----------
+  // ---------- dictionary (Datamuse + offline fallback) ----------
   // Used to build word-bank distractors: similar-meaning words, biased to the same
-  // part of speech. Free, no key. Falls back to passage words when offline.
-  fetchJson = async (url) => { try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); } catch (e) { return null; } };
+  // part of speech. Free, no key. The fetch is time-boxed so a slow or blocked
+  // network can't leave the "Finding similar words…" spinner hanging — on timeout
+  // or failure we fall back to the offline, part-of-speech-aware pools below.
+  fetchJson = async (url, ms = 3000) => {
+    try {
+      const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+      const t = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, ms) : null;
+      const r = await fetch(url, ctrl ? { signal: ctrl.signal } : undefined);
+      if (t) clearTimeout(t);
+      if (!r.ok) return null; return await r.json();
+    } catch (e) { return null; }
+  };
   posOf = (tags) => { if (!tags) return null; for (const t of tags) if (t === 'n' || t === 'v' || t === 'adj' || t === 'adv') return t; return null; };
   matchCase = (sample, word) => /^[A-Z]/.test(sample || '') ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+
+  // Curated common-word pools grouped by part of speech, so word-bank distractors
+  // stay plausible even with no network. 'fn' holds function words (pronouns,
+  // prepositions, articles) — the short, common words a verse leans on most.
+  POS_POOL = {
+    n: ['light','water','heart','hand','word','king','land','house','name','day','night','field','tree','stone','mountain','river','voice','face','soul','spirit','fire','wind','rock','gate','road','seed','bread','wine','sheep','staff','crown','throne','servant','master','father','mother','child','brother','friend','enemy','city','nation','people','glory','mercy','grace','truth','peace','joy','hope','faith','love','fear','death','life','power','strength','wisdom','valley','shadow','table','oil','cup','soul','path','sake','house'],
+    v: ['walk','run','speak','call','hear','see','know','make','give','take','come','go','stand','sit','rise','fall','keep','hold','lead','follow','seek','find','build','break','send','bring','turn','open','show','tell','ask','answer','believe','remember','gather','bless','praise','sing','pray','rest','dwell','rule','reign','serve','save','heal','teach','trust','wait','flee','want','lie','restore','prepare','anoint','comfort','dwell','follow'],
+    adj: ['good','great','holy','righteous','wicked','strong','weak','high','low','deep','wide','bright','dark','clean','pure','wise','foolish','rich','poor','glad','old','young','new','ancient','mighty','gentle','quiet','still','green','golden','heavy','sweet','bitter','faithful','true','living','eternal'],
+    adv: ['quickly','slowly','surely','gently','greatly','wholly','freely','boldly','quietly','gladly','soon','again','always','never','often','here','there','now','then','forever','together','within','above','below','near','far','well','yea'],
+    fn: ['the','and','but','for','with','from','unto','into','upon','before','after','over','under','through','among','beside','toward','against','they','them','their','thou','thee','thy','him','her','his','our','your','this','that','these','those','which','whom','where','when','shall','will','may','not','all','my','me','he','is','in','of','a'],
+  };
+  // Reverse index (normalized word -> pos), built once.
+  posIndex = () => {
+    if (this._posIndex) return this._posIndex;
+    const idx = {}; const pools = this.POS_POOL;
+    Object.keys(pools).forEach((k) => pools[k].forEach((w) => { const n = this.norm(w); if (n && !(n in idx)) idx[n] = k; }));
+    return (this._posIndex = idx);
+  };
+  // Best-effort part of speech for a word with no Datamuse data: dictionary lookup
+  // first, then a few high-signal suffix heuristics.
+  localPos = (word) => {
+    const n = this.norm(word); if (!n) return null;
+    const idx = this.posIndex(); if (idx[n]) return idx[n];
+    if (n.length > 3 && /ly$/.test(n)) return 'adv';
+    if (/(ing|eth|est)$/.test(n) || (/ed$/.test(n) && n.length > 3)) return 'v';
+    if (/(ness|tion|sion|ment|ity|ship|hood|ance|ence)$/.test(n)) return 'n';
+    if (/(ous|ful|less|able|ible|ive|ic|ish)$/.test(n)) return 'adj';
+    return null;
+  };
+  posPool = (pos) => { const p = this.POS_POOL; if (pos && p[pos]) return p[pos]; return p.n.concat(p.v, p.adj); };
 
   // ---------- text utils ----------
   norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
@@ -594,6 +634,7 @@ class Component extends DCLogic {
     const seed = this.hash(passage.reference + '|' + passage.words.length);
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
+    this._revealPrev = null;
     this.setState({
       blankList: blanks, bank,
       hiddenVals: {}, bankFill: {},
@@ -866,7 +907,20 @@ class Component extends DCLogic {
 
   toggleHideAll = () => this.setState({ hideAll: !this.state.hideAll, revealed: {} });
   revealWord = (vi) => this.setState({ revealed: { ...this.state.revealed, [vi]: true } });
-  revealAll = () => { this.setState({ revealAllNow: true, hideAll: false, revealed: {} }); this.markPracticed(); };
+  // "Reveal all" shows the whole passage. It snapshots the hide-mode state so the
+  // user can step back into exactly where they were; the other modes keep their
+  // progress (typed/placed words) untouched while revealed, so undo just hides
+  // the answers again. Counts as a practice for the day.
+  revealAll = () => {
+    this._revealPrev = { hideAll: this.state.hideAll, revealed: this.state.revealed };
+    this.setState({ revealAllNow: true, hideAll: false, revealed: {} });
+    this.markPracticed();
+  };
+  undoRevealAll = () => {
+    const prev = this._revealPrev || {}; this._revealPrev = null;
+    this.setState({ revealAllNow: false, hideAll: prev.hideAll || false, revealed: prev.revealed || {} });
+  };
+  toggleRevealAll = () => { if (this.state.revealAllNow) this.undoRevealAll(); else this.revealAll(); };
 
   renderWord_hide = (s, key) => {
     const h = React.createElement; const vi = s.vi, text = s.text; const st = this.state;
@@ -893,6 +947,18 @@ class Component extends DCLogic {
     const blanks = this.state.blankList || []; const i = blanks.indexOf(vi);
     for (let j = i + 1; j < blanks.length; j++) { const el = document.querySelector('[data-blank="' + blanks[j] + '"]'); if (el) { el.focus(); if (el.select) el.select(); return; } }
   };
+  // Backspace on an empty blank steps focus back to the previous blank (mirrors the
+  // typing mode) so corrections flow backwards without reaching for the next field.
+  focusPrevBlank = (vi) => {
+    const blanks = this.state.blankList || []; const i = blanks.indexOf(vi);
+    for (let j = i - 1; j >= 0; j--) {
+      const el = document.querySelector('[data-blank="' + blanks[j] + '"]');
+      if (el) { el.focus(); const v = el.value || ''; try { el.setSelectionRange(v.length, v.length); } catch (_) {} return; }
+    }
+  };
+  onBlankKey = (vi, e) => {
+    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevBlank(vi); }
+  };
   onBlankChange = (vi, val) => {
     const p = this.state.passage; const cur = p ? p.words[vi].text : '';
     const trailingSpace = /\s$/.test(val);
@@ -917,9 +983,10 @@ class Component extends DCLogic {
     return h('input', {
       key, 'data-blank': vi, value: val,
       onChange: (e) => this.onBlankChange(vi, e.target.value),
+      onKeyDown: (e) => this.onBlankKey(vi, e),
       // Tapping a blank focuses it directly; keep it visible above the keyboard.
       onFocus: (e) => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} },
-      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off',
+      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
       style: { font: 'inherit', fontFamily: "'Gentium Book Plus',serif", width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px', touchAction: 'manipulation' },
     });
   };
@@ -978,14 +1045,22 @@ class Component extends DCLogic {
     this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: opts } });
   };
   // Assemble the option list: correct answer + up to 4 distractors, same part of
-  // speech first, topped up from passage words, then shuffled (seeded, stable).
+  // speech first. Sources, in order: Datamuse "similar" words (when online), then
+  // the offline part-of-speech pool (so common words still get plausible, same-POS
+  // distractors with no network), then other passage words. Finally shuffled.
   buildOptions = (correct, sim, targetPos, seed) => {
     const cn = this.norm(correct); const seen = new Set([cn]); const cand = [];
     const push = (w) => { if (!w) return; const n = this.norm(w); if (!n || seen.has(n)) return; if (/\s/.test(w)) return; seen.add(n); cand.push(this.matchCase(correct, w)); };
+    const pos = targetPos || this.localPos(correct);
     if (sim) {
       const same = [], other = [];
-      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; const pos = this.posOf(d.tags); (targetPos && pos === targetPos ? same : other).push(d.word); });
+      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; const p = this.posOf(d.tags); (pos && p === pos ? same : other).push(d.word); });
       same.forEach(push); other.forEach(push);
+    }
+    if (cand.length < 4) {
+      const pool = this.posPool(pos).slice(); const r = this.rng(seed ^ 0x1f3b);
+      for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));[pool[i], pool[j]] = [pool[j], pool[i]]; }
+      pool.forEach((w) => { if (cand.length < 4) push(w); });
     }
     if (cand.length < 4) {
       const words = (this.state.passage.words || []).map((w) => w.text);
@@ -1033,17 +1108,33 @@ class Component extends DCLogic {
     const correct = blanks.filter((vi) => this.norm(this.state.bank.items[this.state.bankFill[vi]].text) === this.norm(p.words[vi].text)).length;
     this.recordResult(correct / blanks.length);
   };
-  // The tray only exposes tokens belonging to the current verse (the one holding the
-  // next empty slot) and the verse after it, so an all-blank chapter stays manageable.
+  // The tray only exposes words the current verse (the one holding the next empty
+  // slot) and the verse after it still need, so an all-blank chapter stays
+  // manageable. Tiles are fungible by text (case-insensitive): a word is offered as
+  // long as some unfilled slot in the window needs it, and ANY unused tile of that
+  // text satisfies it — so a duplicate word from a different position is never
+  // stranded out of the visible window.
   trayWindow = () => {
     const st = this.state; const p = st.passage; if (!p || !st.bank) return [];
-    const used = new Set(Object.values(st.bankFill).filter((x) => x != null));
     const firstSlot = st.blankList.find((vi) => st.bankFill[vi] == null);
     if (firstSlot == null) return [];
     const v0 = p.words[firstSlot].v;
-    return st.bank.order
-      .filter((id) => !used.has(id) && (p.words[st.bank.items[id].vi].v === v0 || p.words[st.bank.items[id].vi].v === v0 + 1))
-      .map((id) => ({ text: st.bank.items[id].text, onClick: this.tapGuard('tray' + id, () => this.placeBank(id)) }));
+    const need = {};
+    st.blankList.forEach((vi) => {
+      if (st.bankFill[vi] != null) return;
+      if (p.words[vi].v !== v0 && p.words[vi].v !== v0 + 1) return;
+      const n = this.norm(p.words[vi].text); need[n] = (need[n] || 0) + 1;
+    });
+    const used = new Set(Object.values(st.bankFill).filter((x) => x != null));
+    const shown = {}; const out = [];
+    st.bank.order.forEach((id) => {
+      if (used.has(id)) return;
+      const n = this.norm(st.bank.items[id].text);
+      if (!need[n] || (shown[n] || 0) >= need[n]) return;
+      shown[n] = (shown[n] || 0) + 1;
+      out.push({ text: st.bank.items[id].text, onClick: this.tapGuard('tray' + id, () => this.placeBank(id)) });
+    });
+    return out;
   };
 
   // ---- shared rendering ----
@@ -1264,7 +1355,9 @@ class Component extends DCLogic {
 
       // pinned footer
       showFooter, footerStyle, footerInner, practicePad, navBtn,
-      revealAll: this.revealAll, resetMode: this.resetMode,
+      revealAll: this.revealAll, toggleRevealAll: this.toggleRevealAll,
+      revealAllLabel: st.revealAllNow ? 'Hide again' : 'Reveal all',
+      resetMode: this.resetMode,
       toggleHints: this.toggleHints, hintsBtn: this.toggleBtn(st.showHints), hintsLabel: st.showHints ? 'Hints on' : 'Hints off',
 
       // status

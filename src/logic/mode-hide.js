@@ -5,7 +5,20 @@
 
   toggleHideAll = () => this.setState({ hideAll: !this.state.hideAll, revealed: {} });
   revealWord = (vi) => this.setState({ revealed: { ...this.state.revealed, [vi]: true } });
-  revealAll = () => { this.setState({ revealAllNow: true, hideAll: false, revealed: {} }); this.markPracticed(); };
+  // "Reveal all" shows the whole passage. It snapshots the hide-mode state so the
+  // user can step back into exactly where they were; the other modes keep their
+  // progress (typed/placed words) untouched while revealed, so undo just hides
+  // the answers again. Counts as a practice for the day.
+  revealAll = () => {
+    this._revealPrev = { hideAll: this.state.hideAll, revealed: this.state.revealed };
+    this.setState({ revealAllNow: true, hideAll: false, revealed: {} });
+    this.markPracticed();
+  };
+  undoRevealAll = () => {
+    const prev = this._revealPrev || {}; this._revealPrev = null;
+    this.setState({ revealAllNow: false, hideAll: prev.hideAll || false, revealed: prev.revealed || {} });
+  };
+  toggleRevealAll = () => { if (this.state.revealAllNow) this.undoRevealAll(); else this.revealAll(); };
 
   renderWord_hide = (s, key) => {
     const h = React.createElement; const vi = s.vi, text = s.text; const st = this.state;
