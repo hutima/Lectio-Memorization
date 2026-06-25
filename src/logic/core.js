@@ -81,7 +81,7 @@
       showVerseNums: this.props.showVerseNumbers ?? true,
       scriptureSize: g('lectio.size', this.props.scriptureSize || 'Comfortable'),
       scriptureFont: g('lectio.font', this.props.scriptureFont || 'serif'),
-      mode: this.props.defaultMode || 'hide',
+      mode: g('lectio.mode', this.props.defaultMode || 'hide'),
       progress: gj('lectio.progress', {}),
       streak: gj('lectio.streak', { count: 0, last: null, best: 0 }),
       seen: gj('lectio.seen', []),
@@ -97,12 +97,12 @@
     const csel = gj('lectio.creedsel', null);
     if (csel && csel.creedId) { next.creedId = csel.creedId; next.qStart = csel.qStart || '1'; next.ldMode = !!csel.ldMode; next.ldStart = csel.ldStart || '1'; if (csel.creedLang) next.creedLang = csel.creedLang; }
     next.verseCounts = gj('lectio.vc', {});
-    this.setState(next, () => { this.applyTheme(theme); this.ensureVerseCount(); });
-
-    const p = this.buildPassage(this.SAMPLE.reference, this.SAMPLE.version, this.SAMPLE.verses);
-    // Stamp the sample's signature so a restored selector that differs from the sample
-    // shown on screen is correctly flagged as a pending (unloaded) change.
-    this.setState({ passage: p, loadedSig: 'bible|' + this.SAMPLE.version + '|' + this.SAMPLE.reference }, () => this.initModes(p));
+    // While the saved passage is being restored, suppress the "changed selection"
+    // overlay so a returning user never sees their last passage flagged as stale.
+    // restoreLastSelection sets the passage (saved selection, or the bundled sample on a
+    // first visit) — a single load, so its initModes isn't clobbered by a second one.
+    this._booting = true;
+    this.setState(next, () => { this.applyTheme(theme); this.ensureVerseCount(); this.restoreLastSelection(); });
 
     this._mm = matchMedia('(prefers-color-scheme:dark)');
     this._onMM = () => { if (this.state.theme === 'system') this.applyTheme('system'); };
@@ -455,7 +455,7 @@
   };
   // True when the selector has been changed to a different passage than the one shown,
   // so the practice area can grey out and prompt to load the new selection.
-  selDirty = () => this.state.corpus !== 'suggested' && !!this.state.passage && this.state.loadedSig != null && this.selSig() !== this.state.loadedSig;
+  selDirty = () => !this._booting && this.state.corpus !== 'suggested' && !!this.state.passage && this.state.loadedSig != null && this.selSig() !== this.state.loadedSig;
   togglePicker = () => { const open = !this.state.pickerOpen; this.setState({ pickerOpen: open }); if (open) this.ensureVerseCount(); };
   onBook = (e) => { this.setState({ book: e.target.value, chapter: '1', vStart: '1', vEnd: '' }, () => this.ensureVerseCount()); };
   onChapter = (e) => this.setState({ chapter: e.target.value, vStart: '1', vEnd: '' }, () => this.ensureVerseCount());
@@ -464,10 +464,35 @@
   setWhole = () => { const count = this.curVerseCount(); this.setState({ vStart: '1', vEnd: count ? String(count) : '' }); };
   onRefKey = (e) => { if (e.key === 'Enter') this.doLoad(); };
   doLoad = () => {
+    // Remember which corpus the displayed passage came from, so a reload restores it
+    // (loadCreed stamps the signature itself).
+    if (this.state.corpus === 'creeds') { this.loadCreed(); return; }
+    try { localStorage.setItem('lectio.corpus', 'bible'); } catch (e) {}
     // Stamp the selection now so the just-loaded passage no longer reads as "changed".
-    const sig = this.selSig();
-    if (this.state.corpus === 'creeds') { this.setState({ loadedSig: sig }); this.loadCreed(); return; }
-    const ref = this.buildRef(); this.persistSel(); this.setState({ refInput: ref, pickerOpen: false, loadedSig: sig }, () => this.runLoad());
+    const ref = this.buildRef(); this.persistSel(); this.setState({ refInput: ref, pickerOpen: false, loadedSig: this.selSig() }, () => this.runLoad());
+  };
+  // Restore the last loaded passage on startup so the selection persists across reloads
+  // (instead of always reopening on the bundled sample). Cached text restores instantly
+  // and offline; otherwise we re-fetch the saved reference. First visit → the sample.
+  restoreLastSelection = () => {
+    let corpus = '', ref = '';
+    try { corpus = localStorage.getItem('lectio.corpus') || ''; ref = localStorage.getItem('lectio.ref') || ''; } catch (e) {}
+    if (corpus === 'creeds' && this.state.creedId) { this.setState({ corpus: 'creeds' }, () => { this.loadCreed(); this._booting = false; }); return; }
+    if (ref && this.state.book) {
+      const v = this.state.version; const label = v === 'Greek' ? 'GNT' : v; const r = this.buildRef();
+      const cached = this.getCached(label, r);
+      if (cached) { const p = this.buildPassage(cached.reference, label, cached.verses); this.setState({ passage: p, refInput: r, loadedSig: this.selSig() }, () => { this.initModes(p); this._booting = false; }); return; }
+      this._booting = false; this.setState({ refInput: r, loadedSig: this.selSig() }, () => this.runLoad()); return;
+    }
+    this.showSample();
+  };
+  // The bundled offline sample (Psalm 23) — shown on a first visit, before anything has
+  // been loaded. Stamps its own signature so the selector (also defaulting to Psalm 23)
+  // reads as in sync.
+  showSample = () => {
+    const p = this.buildPassage(this.SAMPLE.reference, this.SAMPLE.version, this.SAMPLE.verses);
+    this.setState({ passage: p, loadedSig: 'bible|' + this.SAMPLE.version + '|' + this.SAMPLE.reference }, () => this.initModes(p));
+    this._booting = false;
   };
   setVersion = (v) => {
     const upd = { version: v, error: null, offerKjv: false };
@@ -533,8 +558,8 @@
     }
     this.persistCreedSel();
     const passage = this.buildPassage(reference, d.id, verses, { kind: d.kind, attribution: d.attribution, title: d.title });
-    try { localStorage.setItem('lectio.ref', reference); } catch (e) {}
-    this.setState({ pickerOpen: false, loading: false, error: null, offerKjv: false, refInput: reference, passage }, () => this.initModes(passage));
+    try { localStorage.setItem('lectio.ref', reference); localStorage.setItem('lectio.corpus', 'creeds'); } catch (e) {}
+    this.setState({ corpus: 'creeds', pickerOpen: false, loading: false, error: null, offerKjv: false, refInput: reference, passage, loadedSig: this.selSig() }, () => this.initModes(passage));
   };
 
   runLoad = async () => {
@@ -620,9 +645,12 @@
   };
 
   // ---------- mode navigation ----------
-  setMode = (m) => { this.runUpdateCheck(false); this.setState({ mode: m }, () => { if (m === 'bank' && !this.allBlank()) this.ensureOptions(); }); };
+  // Remember the chosen practice mode so a reload resumes it (alongside the passage),
+  // keeping the per-passage progress shown in context.
+  persistMode = (m) => { try { localStorage.setItem('lectio.mode', m); } catch (e) {} };
+  setMode = (m) => { this.runUpdateCheck(false); this.persistMode(m); this.setState({ mode: m }, () => { if (m === 'bank' && !this.allBlank()) this.ensureOptions(); }); };
   goHome = () => this.setState({ view: 'home' });
-  startMode = (m) => { const p = this.state.passage; this.runUpdateCheck(false); this.setState({ mode: m, view: 'practice' }, () => { if (p) this.initModes(p); }); };
+  startMode = (m) => { const p = this.state.passage; this.runUpdateCheck(false); this.persistMode(m); this.setState({ mode: m, view: 'practice' }, () => { if (p) this.initModes(p); }); };
   startHide = () => this.startMode('hide');
   startFill = () => this.startMode('hidden');
   startBank = () => this.startMode('bank');

@@ -81,31 +81,37 @@
   // these, so we build Greek decoys instead. Covers the Greek block (incl. bare
   // consonants/vowels like θ, α) and the polytonic Greek Extended block.
   isGreek = (w) => /[Ͱ-Ͽἀ-῿]/.test(w || '');
-  // A compact pool of high-frequency Koine lexemes spanning the cases/numbers, so a
-  // Greek blank can be offered plausible same-inflection decoys even when the passage
-  // itself is short. Real NT forms; accents only affect display (ranking/dedup fold
-  // them away), so a stray accent never makes a decoy count as correct.
-  GREEK_POOL = ('ὁ ἡ τό οἱ αἱ τά τοῦ τῆς τῶν τῷ τῇ τόν τήν τούς τάς καί δέ γάρ ἀλλά οὖν τε ἤ ὡς ὅτι ἵνα '
-    + 'ἐν εἰς ἐκ ἀπό διά κατά μετά πρός ἐπί ὑπό περί παρά ἐγώ σύ ἡμεῖς ὑμεῖς αὐτός αὐτοῦ αὐτῷ αὐτόν '
-    + 'οὗτος ἐμοῦ μου σου ἡμῶν ὑμῶν ἡμῖν ὑμῖν θεός θεοῦ θεῷ θεόν κύριος κυρίου κυρίῳ κύριον ἄνθρωπος '
-    + 'ἀνθρώπου λόγος λόγου υἱός υἱοῦ πατήρ πατρός πνεῦμα πνεύματος οὐρανός οὐρανοῦ οὐρανοῖς βασιλεία '
-    + 'βασιλείας γῆ γῆς ἡμέρα ἡμέρας κόσμος κόσμου χάρις χάριτος ἀγάπη ἀγάπης πίστις πίστεως ζωή ζωήν '
-    + 'ζωῆς ὄνομα ὀνόματος ἁμαρτία ἁμαρτίας ἁμαρτιῶν ἐστιν εἰμί ἦν ἔχει λέγει εἶπεν ποιεῖ ἐγένετο '
-    + 'ἔρχεται οἶδα γινώσκει ἀγαπᾷ πιστεύει δίδωσιν').split(' ');
+  // A compact pool of common Koine lexemes spanning the cases/numbers, so a Greek blank
+  // can be offered plausible same-inflection decoys even when the passage itself is
+  // short. Ordered roughly by New Testament frequency (Strong's occurrence) — most
+  // common first — so the pool index doubles as a frequency rank for ranking decoys.
+  // Real NT forms; accents only affect display (ranking/dedup fold them away), so a
+  // stray accent never makes a decoy count as correct.
+  GREEK_POOL = ('ὁ ἡ τό τοῦ τῆς τῶν τῷ τῇ τόν τήν τούς τάς οἱ αἱ τά καί αὐτός αὐτοῦ αὐτῷ αὐτόν σύ σου δέ '
+    + 'ἐν ἐγώ ἐμοῦ μου ἐστιν εἰμί ἦν λέγει εἶπεν εἰς οὗτος θεός θεοῦ θεῷ θεόν ὅτι γάρ ἐκ ἐπί κύριος κυρίου '
+    + 'κυρίῳ κύριον ἔχει πρός ἐγένετο διά ἵνα ἀπό ἀλλά ἔρχεται ποιεῖ ἄνθρωπος ἀνθρώπου ὑμεῖς ὑμῶν ὑμῖν '
+    + 'ἡμεῖς ἡμῶν ἡμῖν κατά μετά οἶδα ἡμέρα ἡμέρας πατήρ πατρός πνεῦμα πνεύματος υἱός υἱοῦ λόγος λόγου '
+    + 'πιστεύει ὄνομα ὀνόματος οὐρανός οὐρανοῦ οὐρανοῖς ζωή ζωήν ζωῆς ἁμαρτία ἁμαρτίας ἁμαρτιῶν κόσμος '
+    + 'κόσμου ἀγάπη ἀγάπης ἀγαπᾷ χάρις χάριτος πίστις πίστεως βασιλεία βασιλείας γῆ γῆς ἤ οὖν τε ὡς περί '
+    + 'ὑπό παρά δίδωσιν γινώσκει').split(' ');
+  // norm(pool word) -> its frequency rank (0 = most common). Built once.
+  greekFreq = () => this._gfreq || (this._gfreq = this.GREEK_POOL.reduce((m, w, i) => { const g = this.norm(w); if (!(g in m)) m[g] = i; return m; }, {}));
   // Five options for a Greek blank: the answer plus four decoys drawn from other words
-  // in the passage and the lexeme pool, ranked so they share the target's ending (its
-  // case/number inflection) — last two letters first, then last letter — with similar
-  // length as a tie-break. Diacritics are folded for matching (via norm) but the
-  // original accented form is shown.
+  // in the passage and the lexeme pool. Ranking, in order: share the target's ending
+  // (its case/number inflection) — last two letters, then last letter — then, when no
+  // such "similar" form is available, fall back to words of similar LENGTH, preferring
+  // more common lexemes (by NT frequency) before a seeded shuffle. Diacritics are folded
+  // for matching (via norm); the original accented form is shown.
   buildGreekOptions = (vi, correct, seed) => {
-    const cg = this.norm(correct); const seen = new Set([cg]); const cand = [];
-    const add = (w) => { const g = this.norm(w); if (!g || seen.has(g)) return; seen.add(g); cand.push({ text: w, g }); };
+    const cg = this.norm(correct); const seen = new Set([cg]); const cand = []; const freq = this.greekFreq();
+    const NF = this.GREEK_POOL.length; // rank for words not in the frequency-ranked pool
+    const add = (w) => { const g = this.norm(w); if (!g || seen.has(g)) return; seen.add(g); cand.push({ text: w, g, f: g in freq ? freq[g] : NF }); };
     (this.state.passage.words || []).forEach((w) => { if (w.vi !== vi) add(w.text); });
     this.GREEK_POOL.forEach(add);
     const ce2 = cg.slice(-2), ce1 = cg.slice(-1), cl = cg.length; const r = this.rng(seed);
     const tier = (g) => (g.length >= 2 && ce2 && g.slice(-2) === ce2) ? 2 : (g.slice(-1) === ce1 ? 1 : 0);
     cand.forEach((c) => { c.t = tier(c.g); c.k = r(); });
-    cand.sort((a, b) => b.t - a.t || Math.abs(a.g.length - cl) - Math.abs(b.g.length - cl) || a.k - b.k);
+    cand.sort((a, b) => b.t - a.t || Math.abs(a.g.length - cl) - Math.abs(b.g.length - cl) || a.f - b.f || a.k - b.k);
     const all = [correct, ...cand.slice(0, 4).map((c) => c.text)];
     const r2 = this.rng(seed ^ 0x9e37);
     for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(r2() * (i + 1));[all[i], all[j]] = [all[j], all[i]]; }
