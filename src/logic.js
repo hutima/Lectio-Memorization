@@ -18,6 +18,7 @@ class Component extends DCLogic {
     typeIdx: 0, typeInput: '', typeErrors: 0,
     progress: {}, streak: { count: 0, last: null },
     cacheCount: 0, usageToday: 0,
+    updateReady: false,
   };
 
   BOOKS = [
@@ -73,10 +74,47 @@ class Component extends DCLogic {
     this._onMM = () => { if (this.state.theme === 'system') this.applyTheme('system'); };
     this._mm.addEventListener('change', this._onMM);
 
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    this.registerServiceWorker();
     this.maybeRemind();
   }
-  componentWillUnmount() { if (this._mm) this._mm.removeEventListener('change', this._onMM); }
+  componentWillUnmount() {
+    if (this._mm) this._mm.removeEventListener('change', this._onMM);
+    if (this._onVisible) document.removeEventListener('visibilitychange', this._onVisible);
+  }
+
+  // ---------- app updates (service worker) ----------
+  // A new build leaves its worker in "waiting" (sw.js no longer self-skipWaiting), so we
+  // surface a refresh prompt instead of letting users sit on a stale cached shell.
+  registerServiceWorker = () => {
+    if (!('serviceWorker' in navigator)) return;
+    // Reload exactly once, and only after the user accepts the update (this._updating),
+    // so the controllerchange from a first-ever install never reloads mid-session.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (this._updating && !this._reloaded) { this._reloaded = true; window.location.reload(); }
+    });
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      if (!reg) return;
+      this._swReg = reg;
+      // An update could already be waiting from a previous visit.
+      if (reg.waiting && navigator.serviceWorker.controller) this.setState({ updateReady: true });
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing; if (!sw) return;
+        sw.addEventListener('statechange', () => {
+          // Installed while an old worker still controls the page → a fresh build is ready.
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) this.setState({ updateReady: true });
+        });
+      });
+      // Re-check for a new build when the app regains focus (long-lived PWA sessions).
+      this._onVisible = () => { if (!document.hidden) { try { reg.update(); } catch (e) {} } };
+      document.addEventListener('visibilitychange', this._onVisible);
+    }).catch(() => {});
+  };
+  applyUpdate = () => {
+    const sw = this._swReg && this._swReg.waiting;
+    if (sw) { this._updating = true; sw.postMessage('skip-waiting'); }
+    else { window.location.reload(); }
+  };
+  dismissUpdate = () => this.setState({ updateReady: false });
 
   // ---------- theme ----------
   applyTheme = (theme) => {
@@ -601,6 +639,9 @@ class Component extends DCLogic {
       usageVisible: st.usageToday > 0, usageToday: st.usageToday.toLocaleString(),
 
       copyrightOpen: st.copyrightOpen, closeCopyright: this.closeCopyright,
+
+      // app update prompt
+      updateReady: st.updateReady, applyUpdate: this.applyUpdate, dismissUpdate: this.dismissUpdate,
     };
   }
 }

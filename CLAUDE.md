@@ -89,6 +89,17 @@ Pages is served from the default branch root. The site root must contain an
 theme (this was the "white sheet" symptom). `index.html` is produced by
 `build.mjs`; keep it in sync by rebuilding after any `src/` change.
 
+## App updates
+
+When a new build is deployed, the service worker installs but stays in the
+**waiting** state (`sw.js` no longer calls `skipWaiting()` on install). The app
+detects the waiting worker (`registerServiceWorker` in `src/logic.js`) and shows
+an **"Update available"** modal with a *Refresh now* action. Accepting posts
+`skip-waiting` to the worker; once it activates and `controllerchange` fires, the
+page reloads exactly once to run the new code. This keeps users off stale cached
+shells. Bump `CACHE` in `sw.js` when shipping a build that must invalidate the
+old app-shell cache.
+
 ## Practice modes (in `src/logic.js`)
 
 - **hide** – progressively hide words; tap to reveal.
