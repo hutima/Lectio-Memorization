@@ -12,6 +12,7 @@
         </div>
       </div>
       <button onClick="{{ cycleTheme }}" style="{{ chromeBtn }}">{{ themeLabel }}</button>
+      <button onClick="{{ openStats }}" style="{{ chromeBtn }}">Progress</button>
       <button onClick="{{ openSettings }}" style="{{ chromeBtn }}">Settings</button>
     </header>
 
@@ -65,6 +66,7 @@
       </div>
     </sc-if>
 
+    <sc-if value="{{ showPicker }}" hint-placeholder-val="{{ true }}">
     <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;">
       <button onClick="{{ togglePicker }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:14px 16px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text);">
         <div style="flex:1;min-width:0;">
@@ -121,13 +123,25 @@
             <span style="font-size:13px;color:var(--muted);">{{ creedHint }}</span>
           </sc-if>
 
+          <sc-if value="{{ isSuggested }}" hint-placeholder-val="{{ false }}">
+            <div style="font-size:13px;color:var(--muted);line-height:1.5;">Not sure where to start? Pick a collection, then tap a passage to load it.</div>
+            <select value="{{ suggestId }}" onChange="{{ onSuggestCollection }}" style="{{ selectStyle }}"><sc-for list="{{ suggestCollections }}" as="c" hint-placeholder-count="6"><option value="{{ c.id }}">{{ c.title }}</option></sc-for></select>
+            <div style="font-size:12px;color:var(--muted);">{{ suggestNote }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              <sc-for list="{{ suggestItems }}" as="o" hint-placeholder-count="8"><button onClick="{{ o.onClick }}" style="{{ chipStyle }}"><span style="font-weight:600;font-size:14px;">{{ o.label }}</span><span style="font-size:12px;color:var(--muted);">{{ o.ref }}</span></button></sc-for>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ showLoadBtn }}" hint-placeholder-val="{{ true }}">
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
             <button onClick="{{ load }}" style="{{ loadBtn }}">{{ loadLabel }}</button>
             <span style="font-size:13px;color:var(--muted);">{{ loadHint }}</span>
           </div>
+          </sc-if>
         </div>
       </sc-if>
     </div>
+    </sc-if>
 
     <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--bad);border-radius:12px;padding:12px 14px;">
@@ -173,7 +187,13 @@
             <span style="font-size:13px;color:var(--muted);line-height:1.5;">Type the whole passage from memory — your score measures how much you know.</span>
           </button>
         </div>
-        <div style="font-size:13px;color:var(--muted);padding-top:2px;">{{ homeSummary }}</div>
+        <button onClick="{{ openStats }}" style="display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px 16px;cursor:pointer;color:var(--text);margin-top:2px;transition:border-color .15s;" style-hover="border-color:var(--accent);">
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;font-size:14px;">Your progress</div>
+            <div style="font-size:13px;color:var(--muted);margin-top:2px;">{{ homeSummary }}</div>
+          </div>
+          <span style="color:var(--accent);font-size:13px;font-weight:600;white-space:nowrap;">View →</span>
+        </button>
       </div>
     </sc-if>
 
@@ -225,6 +245,10 @@
       <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">{{ creedNote }}</div>
     </sc-if>
     </div>
+    </sc-if>
+
+    <sc-if value="{{ isStats }}" hint-placeholder-val="{{ false }}">
+      {{ statsView }}
     </sc-if>
 
   </main>

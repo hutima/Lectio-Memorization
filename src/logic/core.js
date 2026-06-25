@@ -16,6 +16,7 @@
     pickerOpen: false,
     book: 'Psalms', chapter: '23', vStart: '1', vEnd: '',
     corpus: 'bible', creedId: 'apostles', qStart: '1', creedLang: 'en',
+    suggestId: 'start',
     ldMode: false, ldStart: '1',
     refInput: 'Psalms 23', verseCounts: {},
     loading: false, error: null, offerKjv: false,
@@ -29,7 +30,7 @@
     bank: null, bankFill: {},
     bankActive: null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
     typeVals: {}, typeReveal: {}, typeActive: null,
-    progress: {}, streak: { count: 0, last: null },
+    progress: {}, streak: { count: 0, last: null, best: 0 }, seen: [], history: {},
     cacheCount: 0, usageToday: 0,
     updateReady: false, updateMsg: '',
     kbInset: 0,
@@ -80,10 +81,14 @@
       scriptureFont: g('lectio.font', this.props.scriptureFont || 'serif'),
       mode: this.props.defaultMode || 'hide',
       progress: gj('lectio.progress', {}),
-      streak: gj('lectio.streak', { count: 0, last: null }),
+      streak: gj('lectio.streak', { count: 0, last: null, best: 0 }),
+      seen: gj('lectio.seen', []),
+      history: gj('lectio.history', {}),
       cacheCount: this.cachedVerseCount(),
       usageToday: this.usage().count,
     };
+    // Seed the longest-streak record for users from before it was tracked.
+    next.streak.best = Math.max(next.streak.best || 0, next.streak.count || 0);
     if (sel && sel.book) { next.book = sel.book; next.chapter = sel.chapter; next.vStart = sel.vStart || '1'; next.vEnd = sel.vEnd || ''; }
     // Remember the last creeds picker selection (the displayed passage still starts
     // on the Scripture sample below; corpus stays 'bible' until the user switches).
@@ -111,6 +116,10 @@
       this._vv.addEventListener('scroll', this._onVV);
     }
 
+    // Re-render the stats view on resize so the canon bar re-bins to the new width.
+    this._onResize = () => { if (this.state.view === 'stats') this.setState({ rsz: (this.state.rsz || 0) + 1 }); };
+    window.addEventListener('resize', this._onResize);
+
     this.registerServiceWorker();
     this.maybeRemind();
   }
@@ -118,6 +127,7 @@
     if (this._mm) this._mm.removeEventListener('change', this._onMM);
     if (this._onVisible) document.removeEventListener('visibilitychange', this._onVisible);
     if (this._vv && this._onVV) { this._vv.removeEventListener('resize', this._onVV); this._vv.removeEventListener('scroll', this._onVV); }
+    if (this._onResize) window.removeEventListener('resize', this._onResize);
     if (this._updTimer) clearInterval(this._updTimer);
   }
 
@@ -576,6 +586,7 @@
         this.storePassage('KJV', ref, reference, verses);
       }
       try { localStorage.setItem('lectio.ref', ref); } catch (e) {}
+      this.markSeen(reference);
       const passage = this.buildPassage(reference, label, verses);
       this.setState({ loading: false, passage }, () => this.initModes(passage));
     } catch (e) {
@@ -620,11 +631,29 @@
     this.markPracticed();
   };
   markPracticed = () => {
-    const today = new Date().toISOString().slice(0, 10); const s = { ...this.state.streak };
-    if (s.last === today) return;
-    const y = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-    s.count = (s.last === y ? s.count : 0) + 1; s.last = today;
+    const today = new Date().toISOString().slice(0, 10);
+    this.bumpActivity(today);
+    const s = { ...this.state.streak };
+    if (s.last !== today) {
+      const y = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      s.count = (s.last === y ? s.count : 0) + 1; s.last = today;
+    }
+    s.best = Math.max(s.best || 0, s.count || 0);
     this.setState({ streak: s }); try { localStorage.setItem('lectio.streak', JSON.stringify(s)); } catch (e) {}
+  };
+  // Per-day practice tally for the heatmap (any practice in any mode bumps today).
+  bumpActivity = (today) => {
+    const h = { ...(this.state.history || {}) }; h[today] = (h[today] || 0) + 1;
+    this.setState({ history: h }); try { localStorage.setItem('lectio.history', JSON.stringify(h)); } catch (e) {}
+  };
+  // Record that a passage's verses have been seen (loaded) — this feeds the canon
+  // map's "seen" tier even for modes (like hide) that never post a score. Stored as
+  // bare, version-agnostic references since the canon map is translation-independent.
+  markSeen = (ref) => {
+    const r = this.fixBookName(ref || '').trim(); if (!r) return;
+    const seen = this.state.seen || []; if (seen.indexOf(r) !== -1) return;
+    const next = seen.concat(r); this.setState({ seen: next });
+    try { localStorage.setItem('lectio.seen', JSON.stringify(next)); } catch (e) {}
   };
   toggleLearned = () => {
     const key = this.passageKey(); if (!key) return;
