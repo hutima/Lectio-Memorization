@@ -24,6 +24,10 @@
     const lo = this._optLoading || (this._optLoading = {}); if (lo[vi]) return; lo[vi] = true;
     const p = this.state.passage; if (!p) return;
     const correct = p.words[vi].text; const seed = this.hash(p.reference + '|opt|' + vi);
+    // Greek text: the Datamuse lookups and the English POS pool are meaningless here, so
+    // draw decoys from real Greek lexemes (same-case where possible) instead — and skip
+    // the network round-trip entirely.
+    if (this.isGreek(correct)) { this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: this.buildGreekOptions(vi, correct, seed) } }); return; }
     const q = encodeURIComponent(correct.toLowerCase());
     // The two Datamuse lookups (similar words + part of speech) race a single ~2s
     // deadline in parallel — not back to back — so a slow or blocked network can't
@@ -68,6 +72,43 @@
     const all = [correct, ...cand.slice(0, 4)];
     const r = this.rng(seed);
     for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));[all[i], all[j]] = [all[j], all[i]]; }
+    return all;
+  };
+
+  // ---- Greek option building ----
+  // True if the word is written in Greek script (Greek NT, or a Greek-language creed
+  // like the Lord's Prayer). English "similar word" distractors don't make sense for
+  // these, so we build Greek decoys instead. Covers the Greek block (incl. bare
+  // consonants/vowels like θ, α) and the polytonic Greek Extended block.
+  isGreek = (w) => /[Ͱ-Ͽἀ-῿]/.test(w || '');
+  // A compact pool of high-frequency Koine lexemes spanning the cases/numbers, so a
+  // Greek blank can be offered plausible same-inflection decoys even when the passage
+  // itself is short. Real NT forms; accents only affect display (ranking/dedup fold
+  // them away), so a stray accent never makes a decoy count as correct.
+  GREEK_POOL = ('ὁ ἡ τό οἱ αἱ τά τοῦ τῆς τῶν τῷ τῇ τόν τήν τούς τάς καί δέ γάρ ἀλλά οὖν τε ἤ ὡς ὅτι ἵνα '
+    + 'ἐν εἰς ἐκ ἀπό διά κατά μετά πρός ἐπί ὑπό περί παρά ἐγώ σύ ἡμεῖς ὑμεῖς αὐτός αὐτοῦ αὐτῷ αὐτόν '
+    + 'οὗτος ἐμοῦ μου σου ἡμῶν ὑμῶν ἡμῖν ὑμῖν θεός θεοῦ θεῷ θεόν κύριος κυρίου κυρίῳ κύριον ἄνθρωπος '
+    + 'ἀνθρώπου λόγος λόγου υἱός υἱοῦ πατήρ πατρός πνεῦμα πνεύματος οὐρανός οὐρανοῦ οὐρανοῖς βασιλεία '
+    + 'βασιλείας γῆ γῆς ἡμέρα ἡμέρας κόσμος κόσμου χάρις χάριτος ἀγάπη ἀγάπης πίστις πίστεως ζωή ζωήν '
+    + 'ζωῆς ὄνομα ὀνόματος ἁμαρτία ἁμαρτίας ἁμαρτιῶν ἐστιν εἰμί ἦν ἔχει λέγει εἶπεν ποιεῖ ἐγένετο '
+    + 'ἔρχεται οἶδα γινώσκει ἀγαπᾷ πιστεύει δίδωσιν').split(' ');
+  // Five options for a Greek blank: the answer plus four decoys drawn from other words
+  // in the passage and the lexeme pool, ranked so they share the target's ending (its
+  // case/number inflection) — last two letters first, then last letter — with similar
+  // length as a tie-break. Diacritics are folded for matching (via norm) but the
+  // original accented form is shown.
+  buildGreekOptions = (vi, correct, seed) => {
+    const cg = this.norm(correct); const seen = new Set([cg]); const cand = [];
+    const add = (w) => { const g = this.norm(w); if (!g || seen.has(g)) return; seen.add(g); cand.push({ text: w, g }); };
+    (this.state.passage.words || []).forEach((w) => { if (w.vi !== vi) add(w.text); });
+    this.GREEK_POOL.forEach(add);
+    const ce2 = cg.slice(-2), ce1 = cg.slice(-1), cl = cg.length; const r = this.rng(seed);
+    const tier = (g) => (g.length >= 2 && ce2 && g.slice(-2) === ce2) ? 2 : (g.slice(-1) === ce1 ? 1 : 0);
+    cand.forEach((c) => { c.t = tier(c.g); c.k = r(); });
+    cand.sort((a, b) => b.t - a.t || Math.abs(a.g.length - cl) - Math.abs(b.g.length - cl) || a.k - b.k);
+    const all = [correct, ...cand.slice(0, 4).map((c) => c.text)];
+    const r2 = this.rng(seed ^ 0x9e37);
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(r2() * (i + 1));[all[i], all[j]] = [all[j], all[i]]; }
     return all;
   };
   setBankActive = (vi) => this.setState({ bankActive: vi }, () => { this.ensureOptions(); this.scrollActive(); });
