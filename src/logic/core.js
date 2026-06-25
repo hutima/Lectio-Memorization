@@ -25,7 +25,7 @@
     esvToken: '', reminderOn: false,
     showHints: true, showVerseNums: true, scriptureSize: 'Comfortable', scriptureFont: 'serif',
     blankPct: 0.25, blankList: [],
-    hideAll: false, revealed: {}, revealAllNow: false,
+    hideAll: false, revealed: {}, hidden: {}, revealAllNow: false,
     hiddenVals: {}, hiddenReveal: {}, fillActive: null,
     bank: null, bankFill: {},
     bankActive: null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
@@ -36,6 +36,14 @@
     kbInset: 0,
     canonOpen: {},
     loadedSig: null,
+    // Verse-by-verse study: focus a single verse of a loaded chapter at a time.
+    // fullPassage holds the whole chapter while vbvIdx walks through its verses;
+    // the displayed `passage` is swapped for a one-verse sub-passage so every mode
+    // (hide/fill/bank/type) practises just that verse with no extra plumbing.
+    vbv: false, vbvIdx: 0, fullPassage: null,
+    // Which collection the "Your progress" view maps: 'bible' (the canon) or a
+    // creed/catechism id.
+    statsScope: 'bible',
   };
 
   BOOKS = [
@@ -298,7 +306,7 @@
     // `words` list, so they hide/blank/score like the rest. Creeds/catechisms carry their
     // own attribution and pass opts.kind, so they skip this.
     let refSegs = null;
-    if (!opts.kind && reference) {
+    if (!opts.kind && !opts.noRef && reference) {
       refSegs = this.splitSegs(this.refToText(reference));
       refSegs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vs.length }); vi++; } });
     }
@@ -343,7 +351,7 @@
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
       bankActive: blanks.length ? blanks[0] : null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
-      hideAll: false, revealed: {}, revealAllNow: false,
+      hideAll: false, revealed: {}, hidden: {}, revealAllNow: false,
       // Test mode carries persistent per-passage progress: verses already mastered are
       // pre-filled so a returning user sees them done and can focus on the rest. A Restart
       // (resetMode) sets _typeNoSeed to clear them for a fresh self-test without erasing the
@@ -362,6 +370,37 @@
       bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
       bankActive: blanks.length ? blanks[0] : null,
     }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
+  };
+
+  // ---------- verse-by-verse study ----------
+  // When a whole chapter (or any multi-verse Scripture passage) is on screen, you can
+  // narrow practice to one verse at a time. The full chapter is parked in fullPassage
+  // and each verse is rebuilt as its own tiny passage (offline-instant — no refetch),
+  // so every mode (hide/fill/bank/type) practises just that verse with no special-casing.
+  // Creeds/catechisms (kind set, or unnumbered verses) and single-verse picks are excluded.
+  vbvAvailable = () => { const p = this.state.passage; return !!p && !p.kind && p.verses.length > 1 && p.verses.every((v) => v.num != null); };
+  // A focused verse's reference, e.g. "John 3:16" (or "Jude 3" for single-chapter books),
+  // derived from the full passage's reference so progress keys and the canon map line up.
+  verseFocusRef = (full, v) => {
+    const ref = this.parseRef(full.reference); if (!ref || v.num == null) return full.reference;
+    const meta = this.BOOKS[ref.bi]; const single = meta.chapters === 1;
+    return this.fixBookName(single ? meta.name + ' ' + v.num : meta.name + ' ' + (ref.ch || this.state.chapter) + ':' + v.num);
+  };
+  // Swap the displayed passage for the single verse at idx (rebuilt from its stored
+  // segments) and re-init the active mode against it. No appended reference line.
+  loadVerseFocus = (idx) => {
+    const full = this.state.fullPassage; if (!full) return;
+    const v = full.verses[idx]; if (!v) return;
+    const text = v.segs.map((s) => s.text).join('');
+    const passage = this.buildPassage(this.verseFocusRef(full, v), full.version, [{ num: v.num, text }], { noRef: true });
+    this.setState({ vbvIdx: idx, passage }, () => this.initModes(passage));
+  };
+  enterVbv = () => { const full = this.state.passage; if (!this.vbvAvailable()) return; this.setState({ vbv: true, fullPassage: full }, () => this.loadVerseFocus(0)); };
+  exitVbv = () => { const full = this.state.fullPassage; if (!full) { this.setState({ vbv: false }); return; } this.setState({ vbv: false, fullPassage: null, passage: full }, () => this.initModes(full)); };
+  vbvGo = (delta) => {
+    const full = this.state.fullPassage; if (!full) return;
+    let i = (this.state.vbvIdx || 0) + delta; if (i < 0) i = 0; if (i > full.verses.length - 1) i = full.verses.length - 1;
+    if (i !== this.state.vbvIdx) this.loadVerseFocus(i);
   };
 
   // ---------- caching (ESV <= 500 verses) ----------
@@ -519,7 +558,7 @@
     if (ref && this.state.book) {
       const v = this.state.version; const label = v === 'Greek' ? (this.bookIndex(this.state.book) < 40 ? 'LXX' : 'GNT') : v; const r = this.buildRef();
       const cached = this.getCached(label, r);
-      if (cached) { const p = this.buildPassage(cached.reference, label, cached.verses); this.setState({ passage: p, refInput: r, loadedSig: this.selSig() }, () => { this.initModes(p); this._booting = false; }); return; }
+      if (cached) { const p = this.buildPassage(cached.reference, label, cached.verses); this.setState({ passage: p, refInput: r, loadedSig: this.selSig(), vbv: false, fullPassage: null }, () => { this.initModes(p); this._booting = false; }); return; }
       this._booting = false; this.setState({ refInput: r, loadedSig: this.selSig() }, () => this.runLoad()); return;
     }
     this.showSample();
@@ -529,7 +568,7 @@
   // reads as in sync.
   showSample = () => {
     const p = this.buildPassage(this.SAMPLE.reference, this.SAMPLE.version, this.SAMPLE.verses);
-    this.setState({ passage: p, loadedSig: 'bible|' + this.SAMPLE.version + '|' + this.SAMPLE.reference }, () => this.initModes(p));
+    this.setState({ passage: p, loadedSig: 'bible|' + this.SAMPLE.version + '|' + this.SAMPLE.reference, vbv: false, fullPassage: null }, () => this.initModes(p));
     this._booting = false;
   };
   setVersion = (v) => {
@@ -598,13 +637,15 @@
     this.persistCreedSel();
     const passage = this.buildPassage(reference, d.id, verses, { kind: d.kind, attribution: d.attribution, title: d.title });
     try { localStorage.setItem('lectio.ref', reference); localStorage.setItem('lectio.corpus', 'creeds'); } catch (e) {}
-    this.setState({ corpus: 'creeds', pickerOpen: false, loading: false, error: null, offerKjv: false, refInput: reference, passage, loadedSig: this.selSig() }, () => this.initModes(passage));
+    this.setState({ corpus: 'creeds', pickerOpen: false, loading: false, error: null, offerKjv: false, refInput: reference, passage, loadedSig: this.selSig(), vbv: false, fullPassage: null }, () => this.initModes(passage));
   };
 
   runLoad = async () => {
     const ref = this.state.refInput.trim(); if (!ref) return;
     const version = this.state.version;
-    this.setState({ loading: true, error: null, offerKjv: false });
+    // A fresh chapter load always leaves any verse-by-verse focus (it pertains to the
+    // previous passage); clear it up front so every branch below restores the chapter view.
+    this.setState({ loading: true, error: null, offerKjv: false, vbv: false, fullPassage: null });
     try {
       let verses, reference, label = version;
       if (version === 'ESV') {

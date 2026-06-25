@@ -244,6 +244,22 @@ input[type=range]{accent-color:var(--accent);}
       </div>
     </sc-if>
 
+    <sc-if value="{{ vbvShow }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px;">
+        <sc-if value="{{ vbvOn }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ vbvPrev }}" style="{{ vbvPrevBtn }}">‹ Prev</button>
+          <button onClick="{{ vbvNext }}" style="{{ vbvNextBtn }}">Next ›</button>
+          <span style="font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap;">{{ vbvLabel }}</span>
+          <span style="flex:1;"></span>
+          <button onClick="{{ exitVbv }}" style="{{ ghostBtn }}">Whole chapter</button>
+        </sc-if>
+        <sc-if value="{{ vbvOff }}" hint-placeholder-val="{{ true }}">
+          <span style="font-size:13px;color:var(--muted);flex:1;min-width:120px;">Study this chapter one verse at a time.</span>
+          <button onClick="{{ enterVbv }}" style="{{ primaryBtn }}">Verse by verse</button>
+        </sc-if>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ showEase }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;">
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Fewer blanks</span>
@@ -312,8 +328,9 @@ input[type=range]{accent-color:var(--accent);}
             <button onClick="{{ toggleHideAll }}" style="{{ hideBtnStyle }}">{{ hideToggleLabel }}</button>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <sc-if value="{{ hasRevealed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearRevealed }}" style="{{ ghostBtn }}">Clear peeks</button></sc-if>
+              <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearHidden }}" style="{{ ghostBtn }}">Show all words</button></sc-if>
               <span style="flex:1;"></span>
-              <span style="font-size:13px;color:var(--muted);">Tap a word to peek or hide it.</span>
+              <span style="font-size:13px;color:var(--muted);">{{ hideHintText }}</span>
             </div>
           </div>
         </sc-if>
@@ -514,7 +531,7 @@ class Component extends DCLogic {
     esvToken: '', reminderOn: false,
     showHints: true, showVerseNums: true, scriptureSize: 'Comfortable', scriptureFont: 'serif',
     blankPct: 0.25, blankList: [],
-    hideAll: false, revealed: {}, revealAllNow: false,
+    hideAll: false, revealed: {}, hidden: {}, revealAllNow: false,
     hiddenVals: {}, hiddenReveal: {}, fillActive: null,
     bank: null, bankFill: {},
     bankActive: null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
@@ -525,6 +542,14 @@ class Component extends DCLogic {
     kbInset: 0,
     canonOpen: {},
     loadedSig: null,
+    // Verse-by-verse study: focus a single verse of a loaded chapter at a time.
+    // fullPassage holds the whole chapter while vbvIdx walks through its verses;
+    // the displayed `passage` is swapped for a one-verse sub-passage so every mode
+    // (hide/fill/bank/type) practises just that verse with no extra plumbing.
+    vbv: false, vbvIdx: 0, fullPassage: null,
+    // Which collection the "Your progress" view maps: 'bible' (the canon) or a
+    // creed/catechism id.
+    statsScope: 'bible',
   };
 
   BOOKS = [
@@ -787,7 +812,7 @@ class Component extends DCLogic {
     // `words` list, so they hide/blank/score like the rest. Creeds/catechisms carry their
     // own attribution and pass opts.kind, so they skip this.
     let refSegs = null;
-    if (!opts.kind && reference) {
+    if (!opts.kind && !opts.noRef && reference) {
       refSegs = this.splitSegs(this.refToText(reference));
       refSegs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vs.length }); vi++; } });
     }
@@ -832,7 +857,7 @@ class Component extends DCLogic {
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
       bankActive: blanks.length ? blanks[0] : null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
-      hideAll: false, revealed: {}, revealAllNow: false,
+      hideAll: false, revealed: {}, hidden: {}, revealAllNow: false,
       // Test mode carries persistent per-passage progress: verses already mastered are
       // pre-filled so a returning user sees them done and can focus on the rest. A Restart
       // (resetMode) sets _typeNoSeed to clear them for a fresh self-test without erasing the
@@ -851,6 +876,37 @@ class Component extends DCLogic {
       bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
       bankActive: blanks.length ? blanks[0] : null,
     }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
+  };
+
+  // ---------- verse-by-verse study ----------
+  // When a whole chapter (or any multi-verse Scripture passage) is on screen, you can
+  // narrow practice to one verse at a time. The full chapter is parked in fullPassage
+  // and each verse is rebuilt as its own tiny passage (offline-instant — no refetch),
+  // so every mode (hide/fill/bank/type) practises just that verse with no special-casing.
+  // Creeds/catechisms (kind set, or unnumbered verses) and single-verse picks are excluded.
+  vbvAvailable = () => { const p = this.state.passage; return !!p && !p.kind && p.verses.length > 1 && p.verses.every((v) => v.num != null); };
+  // A focused verse's reference, e.g. "John 3:16" (or "Jude 3" for single-chapter books),
+  // derived from the full passage's reference so progress keys and the canon map line up.
+  verseFocusRef = (full, v) => {
+    const ref = this.parseRef(full.reference); if (!ref || v.num == null) return full.reference;
+    const meta = this.BOOKS[ref.bi]; const single = meta.chapters === 1;
+    return this.fixBookName(single ? meta.name + ' ' + v.num : meta.name + ' ' + (ref.ch || this.state.chapter) + ':' + v.num);
+  };
+  // Swap the displayed passage for the single verse at idx (rebuilt from its stored
+  // segments) and re-init the active mode against it. No appended reference line.
+  loadVerseFocus = (idx) => {
+    const full = this.state.fullPassage; if (!full) return;
+    const v = full.verses[idx]; if (!v) return;
+    const text = v.segs.map((s) => s.text).join('');
+    const passage = this.buildPassage(this.verseFocusRef(full, v), full.version, [{ num: v.num, text }], { noRef: true });
+    this.setState({ vbvIdx: idx, passage }, () => this.initModes(passage));
+  };
+  enterVbv = () => { const full = this.state.passage; if (!this.vbvAvailable()) return; this.setState({ vbv: true, fullPassage: full }, () => this.loadVerseFocus(0)); };
+  exitVbv = () => { const full = this.state.fullPassage; if (!full) { this.setState({ vbv: false }); return; } this.setState({ vbv: false, fullPassage: null, passage: full }, () => this.initModes(full)); };
+  vbvGo = (delta) => {
+    const full = this.state.fullPassage; if (!full) return;
+    let i = (this.state.vbvIdx || 0) + delta; if (i < 0) i = 0; if (i > full.verses.length - 1) i = full.verses.length - 1;
+    if (i !== this.state.vbvIdx) this.loadVerseFocus(i);
   };
 
   // ---------- caching (ESV <= 500 verses) ----------
@@ -1008,7 +1064,7 @@ class Component extends DCLogic {
     if (ref && this.state.book) {
       const v = this.state.version; const label = v === 'Greek' ? (this.bookIndex(this.state.book) < 40 ? 'LXX' : 'GNT') : v; const r = this.buildRef();
       const cached = this.getCached(label, r);
-      if (cached) { const p = this.buildPassage(cached.reference, label, cached.verses); this.setState({ passage: p, refInput: r, loadedSig: this.selSig() }, () => { this.initModes(p); this._booting = false; }); return; }
+      if (cached) { const p = this.buildPassage(cached.reference, label, cached.verses); this.setState({ passage: p, refInput: r, loadedSig: this.selSig(), vbv: false, fullPassage: null }, () => { this.initModes(p); this._booting = false; }); return; }
       this._booting = false; this.setState({ refInput: r, loadedSig: this.selSig() }, () => this.runLoad()); return;
     }
     this.showSample();
@@ -1018,7 +1074,7 @@ class Component extends DCLogic {
   // reads as in sync.
   showSample = () => {
     const p = this.buildPassage(this.SAMPLE.reference, this.SAMPLE.version, this.SAMPLE.verses);
-    this.setState({ passage: p, loadedSig: 'bible|' + this.SAMPLE.version + '|' + this.SAMPLE.reference }, () => this.initModes(p));
+    this.setState({ passage: p, loadedSig: 'bible|' + this.SAMPLE.version + '|' + this.SAMPLE.reference, vbv: false, fullPassage: null }, () => this.initModes(p));
     this._booting = false;
   };
   setVersion = (v) => {
@@ -1087,13 +1143,15 @@ class Component extends DCLogic {
     this.persistCreedSel();
     const passage = this.buildPassage(reference, d.id, verses, { kind: d.kind, attribution: d.attribution, title: d.title });
     try { localStorage.setItem('lectio.ref', reference); localStorage.setItem('lectio.corpus', 'creeds'); } catch (e) {}
-    this.setState({ corpus: 'creeds', pickerOpen: false, loading: false, error: null, offerKjv: false, refInput: reference, passage, loadedSig: this.selSig() }, () => this.initModes(passage));
+    this.setState({ corpus: 'creeds', pickerOpen: false, loading: false, error: null, offerKjv: false, refInput: reference, passage, loadedSig: this.selSig(), vbv: false, fullPassage: null }, () => this.initModes(passage));
   };
 
   runLoad = async () => {
     const ref = this.state.refInput.trim(); if (!ref) return;
     const version = this.state.version;
-    this.setState({ loading: true, error: null, offerKjv: false });
+    // A fresh chapter load always leaves any verse-by-verse focus (it pertains to the
+    // previous passage); clear it up front so every branch below restores the chapter view.
+    this.setState({ loading: true, error: null, offerKjv: false, vbv: false, fullPassage: null });
     try {
       let verses, reference, label = version;
       if (version === 'ESV') {
@@ -1307,6 +1365,16 @@ class Component extends DCLogic {
   toggleWord = (vi) => { const r = { ...this.state.revealed }; if (r[vi]) delete r[vi]; else r[vi] = true; this.setState({ revealed: r }); };
   // Re-hide every peeked word without leaving hide mode.
   clearRevealed = () => this.setState({ revealed: {} });
+  // Before the whole passage is hidden, tap a word to hide just that one (the inverse
+  // of fill mode's tap-to-reveal): build up the words to recite a few at a time. Hiding
+  // your first word counts as practice for the day, like the Hide-passage button does.
+  toggleHideWord = (vi) => {
+    const hdn = { ...this.state.hidden }; const first = !Object.keys(this.state.hidden).length;
+    if (hdn[vi]) delete hdn[vi]; else { hdn[vi] = true; if (first) this.markPracticed(); }
+    this.setState({ hidden: hdn });
+  };
+  // Show every individually-hidden word again (without hiding the whole passage).
+  clearHidden = () => this.setState({ hidden: {} });
   // "Reveal all" shows the whole passage. It snapshots the hide-mode state so the
   // user can step back into exactly where they were; the other modes keep their
   // progress (typed/placed words) untouched while revealed, so undo just hides
@@ -1322,20 +1390,32 @@ class Component extends DCLogic {
   };
   toggleRevealAll = () => { if (this.state.revealAllNow) this.undoRevealAll(); else this.revealAll(); };
 
+  // Hidden-word chrome (transparent text on a soft block) — shared by the whole-passage
+  // peek state and the individually-hidden words, so a hidden word looks the same either way.
+  hideChrome = { background: 'var(--accent-soft)', color: 'transparent', borderRadius: '4px', padding: '0 2px', boxShadow: 'inset 0 -1px 0 var(--line)' };
   renderWord_hide = (s, key) => {
     const h = React.createElement; const vi = s.vi, text = s.text; const st = this.state;
-    if (!st.hideAll) return h('span', { key }, text);
+    if (!st.hideAll) {
+      // Passage shown: tap a word to hide it, tap a hidden word to show it again.
+      if (st.hidden[vi]) return h('span', { key, onClick: this.tapGuard('hid' + vi, () => this.toggleHideWord(vi)), title: 'tap to show', style: { cursor: 'pointer', touchAction: 'manipulation', ...this.hideChrome } }, text);
+      return h('span', { key, onClick: this.tapGuard('hid' + vi, () => this.toggleHideWord(vi)), title: 'tap to hide', style: { cursor: 'pointer', touchAction: 'manipulation' } }, text);
+    }
     if (st.revealed[vi]) return h('span', { key, onClick: this.tapGuard('rev' + vi, () => this.toggleWord(vi)), title: 'tap to hide', style: { cursor: 'pointer', touchAction: 'manipulation', color: 'var(--accent)' } }, text);
-    return h('span', { key, onClick: this.tapGuard('rev' + vi, () => this.toggleWord(vi)), title: 'tap to peek', style: { cursor: 'pointer', touchAction: 'manipulation', background: 'var(--accent-soft)', color: 'transparent', borderRadius: '4px', padding: '0 2px', boxShadow: 'inset 0 -1px 0 var(--line)' } }, text);
+    return h('span', { key, onClick: this.tapGuard('rev' + vi, () => this.toggleWord(vi)), title: 'tap to peek', style: { cursor: 'pointer', touchAction: 'manipulation', ...this.hideChrome } }, text);
   };
 
-  // Footer control values for hide mode.
+  // Footer control values for hide mode. "Clear peeks" applies when the passage is hidden
+  // (re-hides peeked words); "Show all words" applies when it's shown (clears the words you
+  // tapped to hide). The hint flips to match which tap gesture is active.
   vals_hide = () => ({
     isHide: this.state.mode === 'hide',
     toggleHideAll: this.toggleHideAll,
     hideToggleLabel: this.state.hideAll ? 'Show passage' : 'Hide passage',
     clearRevealed: this.clearRevealed,
-    hasRevealed: Object.keys(this.state.revealed).length > 0,
+    hasRevealed: this.state.hideAll && Object.keys(this.state.revealed).length > 0,
+    clearHidden: this.clearHidden,
+    hasHidden: !this.state.hideAll && Object.keys(this.state.hidden).length > 0,
+    hideHintText: this.state.hideAll ? 'Tap a word to peek.' : 'Tap a word to hide it.',
   });
 
   // ============================================================================
@@ -1966,6 +2046,57 @@ class Component extends DCLogic {
   card = (kids, key) => React.createElement('div', { key, style: { background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '16px', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' } }, kids);
   sectionTitle = (t, key) => React.createElement('div', { key, style: { fontSize: '13px', fontWeight: 700, letterSpacing: '.3px', color: 'var(--muted)' } }, t);
   swatch = (color, label) => React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--muted)' } }, React.createElement('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: color, border: '1px solid var(--line)' } }), label);
+
+  // ---------- creed / catechism progress ----------
+  setStatsScope = (e) => this.setState({ statsScope: e.target.value });
+  // Per-doc progress, read back from the same progress map the Bible canon uses. Progress
+  // keys are "version · reference"; for a creed/catechism the version IS the doc id (see
+  // loadCreed). For catechisms we resolve each entry's reference to the question number(s)
+  // it covers — "WSC Q1" -> [1], "Heidelberg · Lord's Day 5" -> that day's question range —
+  // and grade them 0 unseen / 1 studied / 2 memorized. Creeds collapse to a single status.
+  docProgress = (d) => {
+    const isCat = d.kind === 'catechism';
+    const total = isCat ? d.items.length : 1;
+    const status = new Array(total).fill(0);
+    const setQ = (n, val) => { const i = d.items.findIndex((it) => it.n === n); if (i >= 0 && status[i] < val) status[i] = val; };
+    const prog = this.state.progress || {};
+    Object.keys(prog).forEach((key) => {
+      const sep = key.indexOf(' · '); if (sep < 0 || key.slice(0, sep) !== d.id) return;
+      const ref = key.slice(sep + 3); const p = prog[key];
+      const val = (p.learned || (p.best || 0) >= this.MASTERY || (p.known || 0) >= this.MASTERY) ? 2 : (p.attempts || 0) > 0 ? 1 : 0;
+      if (!val) return;
+      if (!isCat) { if (status[0] < val) status[0] = val; return; }
+      const ld = ref.match(/Lord.?s Day\s*(\d+)/i);
+      if (ld && Array.isArray(d.lordsDays)) { const rng = d.lordsDays[parseInt(ld[1], 10) - 1]; if (rng) for (let q = rng[0]; q <= rng[1]; q++) setQ(q, val); return; }
+      const qm = ref.match(/Q\s*(\d+)/i); if (qm) setQ(parseInt(qm[1], 10), val);
+    });
+    let seen = 0, done = 0; status.forEach((v) => { if (v >= 1) seen++; if (v === 2) done++; });
+    return { status, total, seen, done, isCat };
+  };
+  // The map card for a creed/catechism: catechisms get one small square per question
+  // (grey -> blue as you study -> memorize); creeds collapse to a single status chip.
+  renderDocStats = (d) => {
+    const h = React.createElement; const s = this.canonStops(); const dp = this.docProgress(d);
+    const title = this.sectionTitle(d.title.toUpperCase(), 'ct');
+    if (!dp.isCat) {
+      const label = dp.done ? 'Memorized' : dp.seen ? 'Practiced' : 'Not started yet';
+      return this.card([
+        title,
+        h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+          h('span', { style: { width: '16px', height: '16px', borderRadius: '4px', background: this.canonColor(dp.status[0]), border: '1px solid var(--line)' } }),
+          h('span', { style: { fontSize: '14px', color: 'var(--text)' } }, label)),
+        h('div', { key: 'hint', style: { fontSize: '12px', color: 'var(--muted)' } }, 'Practise this in a graded mode (Fill, Word bank, or Test) to track it here.'),
+      ], 'doccard');
+    }
+    const cells = dp.status.map((v, i) => h('div', { key: i, title: 'Q' + d.items[i].n + (v === 2 ? ' · memorized' : v === 1 ? ' · studied' : ''), style: { width: '15px', height: '15px', borderRadius: '4px', background: this.canonColor(v), border: '1px solid var(--line)' } }));
+    return this.card([
+      title,
+      h('div', { key: 'sum', style: { fontSize: '13px', color: 'var(--text)' } }, h('strong', null, dp.seen), ' of ', dp.total, ' questions studied', h('span', { style: { color: 'var(--muted)' } }, '  ·  ' + dp.done + ' memorized')),
+      h('div', { key: 'grid', style: { display: 'flex', flexWrap: 'wrap', gap: '4px' } }, cells),
+      h('div', { key: 'lg', style: { display: 'flex', gap: '14px', flexWrap: 'wrap', marginTop: '2px' } }, this.swatch(this.mix(s.a, s.a, 0), 'Unseen'), this.swatch(this.mix(s.a, s.b, 1), 'Studied'), this.swatch(this.mix(s.b, s.c, 1), 'Memorized')),
+    ], 'catcard');
+  };
+
   renderStats = () => {
     const h = React.createElement; const st = this.state; const data = this.verseStatus(); const s = this.canonStops();
     const fmt = (n) => n.toLocaleString();
@@ -2017,7 +2148,17 @@ class Component extends DCLogic {
       h('div', { key: 'lg', style: { display: 'flex', gap: '14px', flexWrap: 'wrap', marginTop: '2px' } }, this.swatch(this.mix(s.a, s.a, 0), 'Unseen'), this.swatch(this.mix(s.a, s.b, 1), 'Seen'), this.swatch(this.mix(s.b, s.c, 1), 'Memorized')),
     ], 'canon');
 
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } }, [header, tiles, heat, canon]);
+    // Scope selector: map the whole Bible (the canon view above) or a single creed /
+    // catechism (its own per-question breakdown). Defaults to the Bible.
+    const scope = st.statsScope || 'bible';
+    const scopeSel = h('div', { key: 'scope', style: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } }, [
+      h('span', { key: 'l', style: { fontSize: '13px', fontWeight: 700, letterSpacing: '.3px', color: 'var(--muted)' } }, 'SHOWING'),
+      h('select', { key: 's', value: scope, onChange: this.setStatsScope, style: { padding: '9px 11px', border: '1px solid var(--line)', borderRadius: '10px', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', outline: 'none', flex: 1, minWidth: '180px' } },
+        [h('option', { key: 'bible', value: 'bible' }, 'The whole Bible')].concat(this.CREEDS.map((d) => h('option', { key: d.id, value: d.id }, d.title)))),
+    ]);
+    const mapCard = scope === 'bible' ? canon : this.renderDocStats(this.creedDoc(scope));
+
+    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } }, [header, tiles, heat, scopeSel, mapCard]);
   };
 
   // ---------- suggested passages ----------
@@ -2287,8 +2428,9 @@ class Component extends DCLogic {
       modeTabs: [['hide', 'Hide & reveal'], ['bank', 'Word bank'], ['hidden', 'Fill blanks']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.modeSeg(id === st.mode) })),
       selectTest: () => this.setMode('type'), testTabStyle: this.testTab(st.mode === 'type'),
 
-      // passage
-      hasPassage: !!p, reference: p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef()), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
+      // passage. While focused on a single verse, the picker header still shows the whole
+      // chapter (the active selection) — the focused verse is named in the verse-by-verse bar.
+      hasPassage: !!p, reference: (st.vbv && st.fullPassage) ? st.fullPassage.reference : (p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef())), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
       modeHint: modeHints[st.mode] || '',
       practice: this.renderPractice(),
       // When the selector points at a different passage than the one on screen, grey the
@@ -2297,6 +2439,16 @@ class Component extends DCLogic {
       selDirty, pendingRef: isCreeds ? this.creedRefPreview() : this.buildRef(),
       loadNew: this.doLoad, loadNewBtn: primaryBtn, loadNewLabel: st.loading ? 'Loading…' : 'Load new passage',
       practiceDimStyle: selDirty ? { opacity: 0.32, filter: 'blur(2.5px)', pointerEvents: 'none', userSelect: 'none', transition: 'opacity .15s,filter .15s' } : { transition: 'opacity .15s,filter .15s' },
+
+      // verse-by-verse focus bar (only for multi-verse Scripture). vbvShow gates the bar;
+      // vbvOn/vbvOff pick between the in-focus nav (Prev/Next/Whole chapter) and the
+      // "start verse by verse" prompt. Prev/Next disable at the chapter's ends.
+      vbvShow: st.vbv || this.vbvAvailable(), vbvOn: st.vbv, vbvOff: !st.vbv && this.vbvAvailable(),
+      enterVbv: this.enterVbv, exitVbv: this.exitVbv,
+      vbvPrev: () => this.vbvGo(-1), vbvNext: () => this.vbvGo(1),
+      vbvLabel: (st.vbv && st.fullPassage) ? ('Verse ' + ((st.vbvIdx || 0) + 1) + ' of ' + st.fullPassage.verses.length) : '',
+      vbvPrevBtn: navBtn((st.vbvIdx || 0) <= 0),
+      vbvNextBtn: navBtn(!st.fullPassage || (st.vbvIdx || 0) >= st.fullPassage.verses.length - 1),
 
       // ease slider (top of passage)
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
