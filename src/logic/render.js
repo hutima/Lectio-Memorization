@@ -64,8 +64,9 @@
     const count = this.curVerseCount(); const whole = this.isWholeSel();
 
     // Corpus: Scripture (book/chapter/verse, fetched) vs. Creeds & Catechisms (embedded).
-    const isBible = st.corpus !== 'creeds';
+    const isBible = st.corpus === 'bible';
     const isCreeds = st.corpus === 'creeds';
+    const isSuggested = st.corpus === 'suggested';
     const curCreed = isCreeds ? this.creedDoc() : null;
     // A multilingual creed (e.g. the Lord's Prayer) exposes a language toggle.
     const creedLangs = curCreed ? this.creedLangList(curCreed) : null;
@@ -131,7 +132,7 @@
       pickerOpen: st.pickerOpen, togglePicker: this.togglePicker,
       pickerChevron: st.pickerOpen ? '▾' : '▸',
       // corpus toggle + embedded creeds/catechisms selectors
-      corpusOpts: [['bible', 'Scripture'], ['creeds', 'Creeds & Catechisms']].map(([id, label]) => ({ label, onClick: () => this.setCorpus(id), style: this.seg(st.corpus === id) })),
+      corpusOpts: [['bible', 'Scripture'], ['suggested', 'Suggested'], ['creeds', 'Creeds & Catechisms']].map(([id, label]) => ({ label, onClick: () => this.setCorpus(id), style: this.seg(st.corpus === id) })),
       isBible, isCreeds,
       creedDocs: this.CREEDS.map((d) => ({ id: d.id, title: d.title })),
       creedId: st.creedId, onCreed: this.onCreed,
@@ -166,6 +167,7 @@
       setWhole: this.setWhole, wholeBtn: this.toggleBtn(whole), wholeLabel: single ? 'Whole book' : 'Whole chapter',
       load: this.doLoad, loadBtn: primaryBtn, loadLabel: st.loading ? 'Loading…' : (isCreeds ? 'Load' : 'Load passage'),
       loadHint: isCreeds ? (curCreed ? curCreed.attribution : '') : 'Up to one chapter at a time.',
+      showLoadBtn: !isSuggested,
 
       // errors
       hasError: !!st.error, error: st.error, offerKjv: st.offerKjv, switchToKjv: this.switchToKjv,
@@ -234,6 +236,7 @@
       ...this.vals_fill(),
       ...bankVals,
       ...this.vals_type(),
+      ...this.vals_stats(),
       // nav buttons depend on bank enabled/disabled state
       bankPrevBtn: navBtn(bankVals.bankAtStart),
       bankNextBtn: navBtn(bankVals.bankAtEnd),
