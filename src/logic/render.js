@@ -67,6 +67,7 @@
     const isBible = st.corpus === 'bible';
     const isCreeds = st.corpus === 'creeds';
     const isSuggested = st.corpus === 'suggested';
+    const selDirty = this.selDirty();
     const curCreed = isCreeds ? this.creedDoc() : null;
     // A multilingual creed (e.g. the Lord's Prayer) exposes a language toggle.
     const creedLangs = curCreed ? this.creedLangList(curCreed) : null;
@@ -181,6 +182,12 @@
       hasPassage: !!p, reference: p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef()), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
       modeHint: modeHints[st.mode] || '',
       practice: this.renderPractice(),
+      // When the selector points at a different passage than the one on screen, grey the
+      // current text out and prompt to load the new selection (instead of silently
+      // carrying the old passage over under a changed reference).
+      selDirty, pendingRef: isCreeds ? this.creedRefPreview() : this.buildRef(),
+      loadNew: this.doLoad, loadNewBtn: primaryBtn, loadNewLabel: st.loading ? 'Loading…' : 'Load new passage',
+      practiceDimStyle: selDirty ? { opacity: 0.32, filter: 'blur(2.5px)', pointerEvents: 'none', userSelect: 'none', transition: 'opacity .15s,filter .15s' } : { transition: 'opacity .15s,filter .15s' },
 
       // ease slider (top of passage)
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,

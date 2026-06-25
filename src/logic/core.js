@@ -35,6 +35,7 @@
     updateReady: false, updateMsg: '',
     kbInset: 0,
     canonOpen: {},
+    loadedSig: null,
   };
 
   BOOKS = [
@@ -99,7 +100,9 @@
     this.setState(next, () => { this.applyTheme(theme); this.ensureVerseCount(); });
 
     const p = this.buildPassage(this.SAMPLE.reference, this.SAMPLE.version, this.SAMPLE.verses);
-    this.setState({ passage: p }, () => this.initModes(p));
+    // Stamp the sample's signature so a restored selector that differs from the sample
+    // shown on screen is correctly flagged as a pending (unloaded) change.
+    this.setState({ passage: p, loadedSig: 'bible|' + this.SAMPLE.version + '|' + this.SAMPLE.reference }, () => this.initModes(p));
 
     this._mm = matchMedia('(prefers-color-scheme:dark)');
     this._onMM = () => { if (this.state.theme === 'system') this.applyTheme('system'); };
@@ -441,6 +444,18 @@
   };
   isWholeSel = () => { const count = this.curVerseCount(); const s = parseInt(this.state.vStart || '1', 10) || 1; const eRaw = (this.state.vEnd || '').trim(); return s <= 1 && (!eRaw || (count && parseInt(eRaw, 10) >= count)); };
   persistSel = () => { try { localStorage.setItem('lectio.sel', JSON.stringify({ book: this.state.book, chapter: this.state.chapter, vStart: this.state.vStart, vEnd: this.state.vEnd })); } catch (e) {} };
+  // A signature of what the selector currently points at. Compared against the
+  // signature stamped when the displayed passage was loaded (`loadedSig`) so the UI
+  // can tell when the selection has moved on from what's on screen. Suggested is a
+  // tap-to-load launcher (no manual Load), so it never counts as a pending change.
+  selSig = () => {
+    const st = this.state;
+    if (st.corpus === 'creeds') return 'creeds|' + (st.creedId || '') + '|' + (st.creedLang || '') + '|' + (st.ldMode ? 'L' + (st.ldStart || '') : 'Q' + (st.qStart || ''));
+    return 'bible|' + st.version + '|' + this.buildRef();
+  };
+  // True when the selector has been changed to a different passage than the one shown,
+  // so the practice area can grey out and prompt to load the new selection.
+  selDirty = () => this.state.corpus !== 'suggested' && !!this.state.passage && this.state.loadedSig != null && this.selSig() !== this.state.loadedSig;
   togglePicker = () => { const open = !this.state.pickerOpen; this.setState({ pickerOpen: open }); if (open) this.ensureVerseCount(); };
   onBook = (e) => { this.setState({ book: e.target.value, chapter: '1', vStart: '1', vEnd: '' }, () => this.ensureVerseCount()); };
   onChapter = (e) => this.setState({ chapter: e.target.value, vStart: '1', vEnd: '' }, () => this.ensureVerseCount());
@@ -449,8 +464,10 @@
   setWhole = () => { const count = this.curVerseCount(); this.setState({ vStart: '1', vEnd: count ? String(count) : '' }); };
   onRefKey = (e) => { if (e.key === 'Enter') this.doLoad(); };
   doLoad = () => {
-    if (this.state.corpus === 'creeds') { this.loadCreed(); return; }
-    const ref = this.buildRef(); this.persistSel(); this.setState({ refInput: ref, pickerOpen: false }, () => this.runLoad());
+    // Stamp the selection now so the just-loaded passage no longer reads as "changed".
+    const sig = this.selSig();
+    if (this.state.corpus === 'creeds') { this.setState({ loadedSig: sig }); this.loadCreed(); return; }
+    const ref = this.buildRef(); this.persistSel(); this.setState({ refInput: ref, pickerOpen: false, loadedSig: sig }, () => this.runLoad());
   };
   setVersion = (v) => {
     const upd = { version: v, error: null, offerKjv: false };
