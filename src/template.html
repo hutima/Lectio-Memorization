@@ -39,14 +39,12 @@
           </sc-if>
 
           <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;flex-direction:column;gap:8px;">
-              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck="false" inputMode="text" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
-                <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
-                <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-                <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-              </div>
-              <span style="font-size:13px;color:var(--muted);">{{ typeProgress }} · Backspace returns to the last word.</span>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
+              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+              <span style="flex:1;"></span>
+              <span style="font-size:13px;color:var(--muted);">{{ typeStatus }}</span>
             </div>
           </sc-if>
 
@@ -109,10 +107,16 @@
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
               <select value="{{ creedId }}" onChange="{{ onCreed }}" style="{{ selectStyle }}"><sc-for list="{{ creedDocs }}" as="d" hint-placeholder-count="7"><option value="{{ d.id }}">{{ d.title }}</option></sc-for></select>
             </div>
-            <sc-if value="{{ isCatechism }}" hint-placeholder-val="{{ true }}">
-              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-                <label style="font-size:14px;color:var(--muted);display:inline-flex;align-items:center;gap:7px;">Questions<select value="{{ qStart }}" onChange="{{ onQStart }}" style="{{ verseSelectStyle }}"><sc-for list="{{ qOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select>to<select value="{{ qEndValue }}" onChange="{{ onQEnd }}" style="{{ verseSelectStyle }}"><sc-for list="{{ qOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select></label>
+            <sc-if value="{{ hasLordsDays }}" hint-placeholder-val="{{ false }}">
+              <div style="display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;align-self:flex-start;">
+                <sc-for list="{{ groupOpts }}" as="g" hint-placeholder-count="2"><button onClick="{{ g.onClick }}" style="{{ g.style }}">{{ g.label }}</button></sc-for>
               </div>
+            </sc-if>
+            <sc-if value="{{ showQByQuestion }}" hint-placeholder-val="{{ true }}">
+              <label style="font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;">Question<select value="{{ qStart }}" onChange="{{ onQStart }}" style="{{ selectStyle }}"><sc-for list="{{ qOptions }}" as="o" hint-placeholder-count="6"><option value="{{ o.value }}">{{ o.label }}</option></sc-for></select></label>
+            </sc-if>
+            <sc-if value="{{ showQByLD }}" hint-placeholder-val="{{ false }}">
+              <label style="font-size:13px;color:var(--muted);display:flex;flex-direction:column;gap:4px;">Lord’s Day<select value="{{ ldStart }}" onChange="{{ onLdStart }}" style="{{ selectStyle }}"><sc-for list="{{ ldOptions }}" as="o" hint-placeholder-count="6"><option value="{{ o.value }}">{{ o.label }}</option></sc-for></select></label>
             </sc-if>
             <span style="font-size:13px;color:var(--muted);">{{ creedHint }}</span>
           </sc-if>
@@ -325,6 +329,25 @@
         <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved. The ESV text may not be quoted in any publication made available to the public by a Creative Commons license. The ESV may not be translated into any other language.</p>
         <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">Users may not copy or download more than 500 verses of the ESV Bible or more than one half of any book of the ESV Bible.</p>
         <p style="margin:0;font-size:13px;color:var(--muted);">More at <a href="https://www.esv.org" target="_blank" rel="noopener" style="color:var(--accent);">www.esv.org</a>.</p>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ esvModalOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeEsvModal }}" style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:50;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto;">
+      <div onClick="{{ stop }}" style="background:var(--surface);border:1px solid var(--line);border-radius:18px;max-width:460px;width:100%;margin-top:46px;padding:24px;display:flex;flex-direction:column;gap:16px;box-shadow:0 18px 50px rgba(0,0,0,.25);">
+        <div style="display:flex;align-items:center;">
+          <h3 style="margin:0;font-family:'Gentium Book Plus',serif;font-size:22px;flex:1;">ESV API token</h3>
+          <button onClick="{{ closeEsvModal }}" style="{{ ghostBtn }}">Close</button>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted);">The ESV needs a free API token from Crossway. Create a free account, register an application, then paste the token here — it’s stored only on this device.</p>
+        <a href="https://api.esv.org/account/create-application/" target="_blank" rel="noopener" style="font-size:14px;font-weight:600;color:var(--accent);">Get a free ESV API token →</a>
+        <input value="{{ esvToken }}" onChange="{{ onTokenChange }}" placeholder="Paste your ESV API token" type="password" autoComplete="off" spellCheck="false" style="padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);color:var(--text);font-size:14px;outline:none;" />
+        <div style="font-size:12px;color:var(--muted);">{{ tokenState }}</div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+          <button onClick="{{ switchToKjvFromModal }}" style="{{ ghostBtn }}">Use King James</button>
+          <button onClick="{{ closeEsvModal }}" style="{{ primaryBtn }}">Done</button>
+        </div>
       </div>
     </div>
   </sc-if>

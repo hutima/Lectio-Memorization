@@ -62,6 +62,9 @@
     const curCreed = isCreeds ? this.creedDoc() : null;
     const isCatechism = !!curCreed && curCreed.kind === 'catechism';
     const catTotal = isCatechism ? curCreed.items.length : 0;
+    // A catechism with a Lord's Day map (Heidelberg) can be grouped by Lord's Day.
+    const hasLD = isCatechism && Array.isArray(curCreed.lordsDays) && curCreed.lordsDays.length > 0;
+    const ldMode = hasLD && st.ldMode;
 
     const ghostBtn = { padding: '9px 15px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' };
     const primaryBtn = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fbf8f1', fontSize: '14px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' };
@@ -119,9 +122,19 @@
       creedDocs: this.CREEDS.map((d) => ({ id: d.id, title: d.title })),
       creedId: st.creedId, onCreed: this.onCreed,
       isCatechism,
-      qOptions: isCatechism ? Array.from({ length: catTotal }, (_, i) => String(i + 1)) : [],
-      qStart: st.qStart, qEndValue: st.qEnd || '1', onQStart: this.onQStart, onQEnd: this.onQEnd,
-      creedHint: isCatechism ? 'Pick a question, or a range to review several.' : 'The full text, stored in the app.',
+      // Group toggle (Heidelberg only): pick by individual question or by Lord's Day.
+      hasLordsDays: hasLD, ldMode,
+      groupOpts: hasLD ? [['question', 'By question'], ['lordsday', "By Lord's Day"]].map(([id, label]) => ({ label, onClick: () => this.setCatGroup(id), style: this.seg((id === 'lordsday') === !!ldMode) })) : [],
+      // Catechism questions are independent, so one is studied at a time: a single
+      // selector showing the question text ("Q1 — What is the chief end of man?").
+      showQByQuestion: isCatechism && !ldMode,
+      qOptions: isCatechism ? curCreed.items.map((it) => ({ value: String(it.n), label: 'Q' + it.n + ' — ' + this.truncate(it.q, 56) })) : [],
+      qStart: st.qStart, onQStart: this.onQStart,
+      // Lord's Day selector (Heidelberg) — a Lord's Day groups several questions.
+      showQByLD: ldMode,
+      ldOptions: hasLD ? curCreed.lordsDays.map((rng, i) => ({ value: String(i + 1), label: "Lord's Day " + (i + 1) + ' · Q' + rng[0] + (rng[1] > rng[0] ? '–' + rng[1] : '') })) : [],
+      ldStart: st.ldStart, onLdStart: this.onLdStart,
+      creedHint: isCatechism ? (ldMode ? "Pick a Lord's Day to study its questions together." : 'Pick a question to study.') : 'The full text, stored in the app.',
       versions: ['ESV', 'KJV', 'Greek'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
       books: st.version === 'Greek' ? this.BOOKS.filter((b, i) => i >= 39) : this.BOOKS, book: st.book, onBook: this.onBook, selectStyle,
       chapterSelectStyle: { ...selectStyle, flex: 'none', minWidth: '92px' },
@@ -178,6 +191,10 @@
       usageVisible: st.usageToday > 0, usageToday: st.usageToday.toLocaleString(),
 
       copyrightOpen: st.copyrightOpen, closeCopyright: this.closeCopyright,
+
+      // ESV API-token prompt (pops up when ESV is selected without a saved token)
+      esvModalOpen: st.esvModalOpen, closeEsvModal: this.closeEsvModal, switchToKjvFromModal: this.switchToKjvFromModal,
+      esvTokenSaved: !!st.esvToken.trim(),
 
       // app update prompt
       updateReady: st.updateReady, applyUpdate: this.applyUpdate, dismissUpdate: this.dismissUpdate,

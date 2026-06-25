@@ -1,7 +1,7 @@
 {
   "$preview": { "width": 430, "height": 860 },
   "defaultMode": { "editor": "enum", "options": ["hide", "hidden", "bank", "type"], "default": "hide", "tsType": "\"hide\"|\"hidden\"|\"bank\"|\"type\"" },
-  "defaultVersion": { "editor": "enum", "options": ["ESV", "KJV"], "default": "ESV", "tsType": "\"ESV\"|\"KJV\"" },
+  "defaultVersion": { "editor": "enum", "options": ["ESV", "KJV"], "default": "KJV", "tsType": "\"ESV\"|\"KJV\"" },
   "scriptureSize": { "editor": "enum", "options": ["Compact", "Comfortable", "Large"], "default": "Comfortable", "tsType": "\"Compact\"|\"Comfortable\"|\"Large\"" },
   "showVerseNumbers": { "editor": "boolean", "default": true, "tsType": "boolean" },
   "hintsDefault": { "editor": "boolean", "default": true, "tsType": "boolean" }

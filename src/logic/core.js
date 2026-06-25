@@ -11,15 +11,16 @@
 
   state = {
     theme: 'system', resolvedTheme: 'light',
-    version: 'ESV',
+    version: 'KJV',
     view: 'home',
     pickerOpen: false,
     book: 'Psalms', chapter: '23', vStart: '1', vEnd: '',
-    corpus: 'bible', creedId: 'apostles', qStart: '1', qEnd: '1',
+    corpus: 'bible', creedId: 'apostles', qStart: '1',
+    ldMode: false, ldStart: '1',
     refInput: 'Psalms 23', verseCounts: {},
     loading: false, error: null, offerKjv: false,
     passage: null, mode: 'hide',
-    settingsOpen: false, copyrightOpen: false,
+    settingsOpen: false, copyrightOpen: false, esvModalOpen: false,
     esvToken: '', reminderOn: false,
     showHints: true, showVerseNums: true, scriptureSize: 'Comfortable',
     blankPct: 0.25, blankList: [],
@@ -27,7 +28,7 @@
     hiddenVals: {},
     bank: null, bankFill: {},
     bankActive: null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
-    typeIdx: 0, typeInput: '', typeErrors: 0, typeVals: {},
+    typeVals: {},
     progress: {}, streak: { count: 0, last: null },
     cacheCount: 0, usageToday: 0,
     updateReady: false,
@@ -70,7 +71,7 @@
     const sel = gj('lectio.sel', null);
     const next = {
       theme,
-      version: g('lectio.version', this.props.defaultVersion || 'ESV'),
+      version: g('lectio.version', this.props.defaultVersion || 'KJV'),
       esvToken: g('lectio.esvToken', ''),
       reminderOn: g('lectio.reminder', '0') === '1',
       showHints: this.props.hintsDefault ?? true,
@@ -86,7 +87,7 @@
     // Remember the last creeds picker selection (the displayed passage still starts
     // on the Scripture sample below; corpus stays 'bible' until the user switches).
     const csel = gj('lectio.creedsel', null);
-    if (csel && csel.creedId) { next.creedId = csel.creedId; next.qStart = csel.qStart || '1'; next.qEnd = csel.qEnd || '1'; }
+    if (csel && csel.creedId) { next.creedId = csel.creedId; next.qStart = csel.qStart || '1'; next.ldMode = !!csel.ldMode; next.ldStart = csel.ldStart || '1'; }
     next.verseCounts = gj('lectio.vc', {});
     this.setState(next, () => { this.applyTheme(theme); this.ensureVerseCount(); });
 
@@ -228,6 +229,9 @@
   // ---------- text utils ----------
   norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
   stripHtml = (s) => (s || '').replace(/<S>.*?<\/S>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  // Collapse whitespace and clip to n chars (with an ellipsis) — used for the
+  // catechism question labels in the picker dropdown.
+  truncate = (s, n) => { s = (s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
   bookIndex = (name) => this.BOOKS.findIndex((b) => b.name === name) + 1;
   splitSegs = (text) => {
     text = (text || '').normalize('NFC');
@@ -286,7 +290,7 @@
       hiddenVals: {}, bankFill: {},
       bankActive: blanks.length ? blanks[0] : null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
       hideAll: false, revealed: {}, revealAllNow: false,
-      typeIdx: 0, typeInput: '', typeErrors: 0, typeVals: {},
+      typeVals: {},
     }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
   };
   // Shared "ease" slider: how many words become blanks (fill + word-bank modes).
@@ -395,35 +399,49 @@
   setVersion = (v) => {
     const upd = { version: v, error: null, offerKjv: false };
     if (v === 'Greek' && this.bookIndex(this.state.book) < 40) { upd.book = 'Matthew'; upd.chapter = '1'; upd.vStart = '1'; upd.vEnd = ''; }
+    // ESV needs a user-supplied API token. Prompt for it the moment ESV is chosen if
+    // one isn't saved yet, rather than waiting for a failed load.
+    if (v === 'ESV' && !this.state.esvToken.trim()) upd.esvModalOpen = true;
     this.setState(upd, () => { try { localStorage.setItem('lectio.version', v); } catch (e) {} this.ensureVerseCount(); });
   };
+  openEsvModal = () => this.setState({ esvModalOpen: true });
+  closeEsvModal = () => this.setState({ esvModalOpen: false });
   switchToKjv = () => { this.setState({ version: 'KJV', error: null, offerKjv: false }, () => { try { localStorage.setItem('lectio.version', 'KJV'); } catch (e) {} this.runLoad(); }); };
+  // From the ESV token modal: fall back to King James and dismiss (no forced load).
+  switchToKjvFromModal = () => { this.setState({ version: 'KJV', error: null, offerKjv: false, esvModalOpen: false }, () => { try { localStorage.setItem('lectio.version', 'KJV'); } catch (e) {} }); };
 
   // ---------- creeds & catechisms (embedded, no network) ----------
   creedDoc = (id) => this.CREEDS.find((d) => d.id === (id || this.state.creedId)) || this.CREEDS[0] || null;
-  // Resolve the selected question range for a catechism, clamped to its length.
-  catRange = (d) => {
+  // Whether this doc carries a Lord's Day map (Heidelberg) and is in that mode now.
+  ldActive = (d) => Array.isArray(d.lordsDays) && d.lordsDays.length > 0 && this.state.ldMode;
+  // Catechism questions are independent, so one is studied at a time. The exception is
+  // grouping by Lord's Day (Heidelberg), where a single Lord's Day spans a few questions.
+  // Returns the question range to load (qs..qe) plus its reference label.
+  catSelection = (d) => {
+    if (this.ldActive(d)) {
+      const days = d.lordsDays; const n = Math.min(Math.max(1, parseInt(this.state.ldStart || '1', 10) || 1), days.length);
+      const [qs, qe] = days[n - 1];
+      return { qs, qe, label: d.short + ' · Lord’s Day ' + n };
+    }
     const total = d.items.length;
-    const s = Math.min(Math.max(1, parseInt(this.state.qStart || '1', 10) || 1), total);
-    const e = Math.min(Math.max(s, parseInt(this.state.qEnd || String(s), 10) || s), total);
-    return { s, e, total };
+    const n = Math.min(Math.max(1, parseInt(this.state.qStart || '1', 10) || 1), total);
+    return { qs: n, qe: n, label: d.short + ' Q' + n };
   };
-  creedRef = (d, r) => d.kind === 'catechism' ? d.short + ' Q' + r.s + (r.e > r.s ? '–' + r.e : '') : d.title;
   // Reference shown in the picker/header before a creed has been loaded.
-  creedRefPreview = () => { const d = this.creedDoc(); if (!d) return 'Creeds & Catechisms'; return this.creedRef(d, d.kind === 'catechism' ? this.catRange(d) : null); };
+  creedRefPreview = () => { const d = this.creedDoc(); if (!d) return 'Creeds & Catechisms'; return d.kind === 'catechism' ? this.catSelection(d).label : d.title; };
   setCorpus = (c) => this.setState({ corpus: c, error: null, offerKjv: false });
-  onCreed = (e) => this.setState({ creedId: e.target.value, qStart: '1', qEnd: '1' }, this.persistCreedSel);
-  // Keep the range coherent: a start past the current end drags the end along.
-  onQStart = (e) => { const v = e.target.value; const upd = { qStart: v }; if ((parseInt(this.state.qEnd || '1', 10) || 1) < (parseInt(v || '1', 10) || 1)) upd.qEnd = v; this.setState(upd); };
-  onQEnd = (e) => this.setState({ qEnd: e.target.value });
-  persistCreedSel = () => { try { localStorage.setItem('lectio.creedsel', JSON.stringify({ creedId: this.state.creedId, qStart: this.state.qStart, qEnd: this.state.qEnd })); } catch (e) {} };
+  onCreed = (e) => this.setState({ creedId: e.target.value, qStart: '1', ldStart: '1' }, this.persistCreedSel);
+  setCatGroup = (m) => this.setState({ ldMode: m === 'lordsday' }, this.persistCreedSel);
+  onQStart = (e) => this.setState({ qStart: e.target.value }, this.persistCreedSel);
+  onLdStart = (e) => this.setState({ ldStart: e.target.value }, this.persistCreedSel);
+  persistCreedSel = () => { try { localStorage.setItem('lectio.creedsel', JSON.stringify({ creedId: this.state.creedId, qStart: this.state.qStart, ldMode: this.state.ldMode, ldStart: this.state.ldStart })); } catch (e) {} };
   loadCreed = () => {
     const d = this.creedDoc(); if (!d) return;
     let reference, verses;
     if (d.kind === 'catechism') {
-      const r = this.catRange(d);
-      verses = d.items.filter((it) => it.n >= r.s && it.n <= r.e).map((it) => ({ num: it.n, head: it.q, text: it.a }));
-      reference = this.creedRef(d, r);
+      const sel = this.catSelection(d);
+      verses = d.items.filter((it) => it.n >= sel.qs && it.n <= sel.qe).map((it) => ({ num: it.n, head: it.q, text: it.a }));
+      reference = sel.label;
     } else {
       verses = (d.paras || []).map((t) => ({ num: null, text: t }));
       reference = d.title;
@@ -442,7 +460,7 @@
       let verses, reference, label = version;
       if (version === 'ESV') {
         const token = this.state.esvToken.trim();
-        if (!token) { this.setState({ loading: false, error: 'Add your ESV API token in Settings to use the ESV — or switch to King James.', offerKjv: true }); return; }
+        if (!token) { this.setState({ loading: false, esvModalOpen: true, error: 'Add your ESV API token to use the ESV — or switch to King James.', offerKjv: true }); return; }
         const gate = this.canRequestEsv();
         if (!gate.ok) {
           const cached = this.getCached('ESV', ref);
