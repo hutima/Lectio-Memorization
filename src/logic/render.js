@@ -23,13 +23,31 @@
     const h = React.createElement; const p = this.state.passage;
     if (!p) return h('div', { style: { color: 'var(--muted)' } }, 'Choose a passage to begin.');
     const sz = this.sizeMap[this.state.scriptureSize] || this.sizeMap.Comfortable;
+    const textStyle = { fontFamily: "'Gentium Book Plus','Georgia',serif", fontSize: sz.fs, lineHeight: sz.lh, color: 'var(--text)', letterSpacing: '.1px' };
+    // Creeds/catechisms render as stacked blocks — a catechism question heading above
+    // its (practiced) answer, or a creed paragraph; Scripture flows inline with
+    // superscript verse numbers. Detected from the passage shape: a verse heading, or
+    // verses with no numbers (a creed).
+    const block = p.verses.some((v) => v.head) || p.verses.every((v) => v.num == null);
+    if (block) {
+      const last = p.verses.length - 1;
+      const blocks = p.verses.map((v, vi) => {
+        const kids = [];
+        if (v.head) kids.push(h('div', { key: 'q', style: { display: 'flex', gap: '8px', marginBottom: '6px' } },
+          h('span', { style: { fontFamily: "'Noto Sans',sans-serif", fontSize: '0.62em', fontWeight: 700, color: 'var(--accent)', flex: 'none', paddingTop: '0.35em' } }, v.num),
+          h('span', { style: { fontWeight: 700 } }, v.head)));
+        kids.push(h('div', { key: 'a' }, v.segs.map((s, si) => this.renderWord(s, vi + '_' + si))));
+        return h('div', { key: 'blk' + vi, style: { marginBottom: vi < last ? '1.15em' : 0 } }, kids);
+      });
+      return h('div', { style: textStyle }, blocks);
+    }
     const out = [];
     p.verses.forEach((v, vi) => {
       if (vi > 0) out.push(h('span', { key: 'sp' + vi }, ' '));
       if (this.state.showVerseNums && v.num != null) out.push(h('sup', { key: 'vn' + vi, style: { fontSize: '0.6em', color: 'var(--muted)', fontWeight: 700, marginRight: '3px', fontFamily: "'Noto Sans',sans-serif" } }, v.num));
       v.segs.forEach((s, si) => out.push(this.renderWord(s, vi + '_' + si)));
     });
-    return h('div', { style: { fontFamily: "'Gentium Book Plus','Georgia',serif", fontSize: sz.fs, lineHeight: sz.lh, color: 'var(--text)', letterSpacing: '.1px' } }, out);
+    return h('div', { style: textStyle }, out);
   };
 
   renderVals() {
@@ -37,6 +55,13 @@
     this._blankSet = new Set(st.blankList || []);
     const meta = this.bookMeta(st.book); const single = meta.chapters === 1;
     const count = this.curVerseCount(); const whole = this.isWholeSel();
+
+    // Corpus: Scripture (book/chapter/verse, fetched) vs. Creeds & Catechisms (embedded).
+    const isBible = st.corpus !== 'creeds';
+    const isCreeds = st.corpus === 'creeds';
+    const curCreed = isCreeds ? this.creedDoc() : null;
+    const isCatechism = !!curCreed && curCreed.kind === 'catechism';
+    const catTotal = isCatechism ? curCreed.items.length : 0;
 
     const ghostBtn = { padding: '9px 15px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' };
     const primaryBtn = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fbf8f1', fontSize: '14px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' };
@@ -88,6 +113,15 @@
       // picker
       pickerOpen: st.pickerOpen, togglePicker: this.togglePicker,
       pickerChevron: st.pickerOpen ? '▾' : '▸',
+      // corpus toggle + embedded creeds/catechisms selectors
+      corpusOpts: [['bible', 'Scripture'], ['creeds', 'Creeds & Catechisms']].map(([id, label]) => ({ label, onClick: () => this.setCorpus(id), style: this.seg(st.corpus === id) })),
+      isBible, isCreeds,
+      creedDocs: this.CREEDS.map((d) => ({ id: d.id, title: d.title })),
+      creedId: st.creedId, onCreed: this.onCreed,
+      isCatechism,
+      qOptions: isCatechism ? Array.from({ length: catTotal }, (_, i) => String(i + 1)) : [],
+      qStart: st.qStart, qEndValue: st.qEnd || '1', onQStart: this.onQStart, onQEnd: this.onQEnd,
+      creedHint: isCatechism ? 'Pick a question, or a range to review several.' : 'The full text, stored in the app.',
       versions: ['ESV', 'KJV', 'Greek'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
       books: st.version === 'Greek' ? this.BOOKS.filter((b, i) => i >= 39) : this.BOOKS, book: st.book, onBook: this.onBook, selectStyle,
       chapterSelectStyle: { ...selectStyle, flex: 'none', minWidth: '92px' },
@@ -100,7 +134,8 @@
       onVStart: this.onVStart, onVEnd: this.onVEnd, onRefKey: this.onRefKey,
       verseSelectStyle: { padding: '8px 9px', border: '1px solid var(--line)', borderRadius: '8px', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', outline: 'none' },
       setWhole: this.setWhole, wholeBtn: this.toggleBtn(whole), wholeLabel: single ? 'Whole book' : 'Whole chapter',
-      load: this.doLoad, loadBtn: primaryBtn, loadLabel: st.loading ? 'Loading…' : 'Load passage',
+      load: this.doLoad, loadBtn: primaryBtn, loadLabel: st.loading ? 'Loading…' : (isCreeds ? 'Load' : 'Load passage'),
+      loadHint: isCreeds ? (curCreed ? curCreed.attribution : '') : 'Up to one chapter at a time.',
 
       // errors
       hasError: !!st.error, error: st.error, offerKjv: st.offerKjv, switchToKjv: this.switchToKjv,
@@ -109,7 +144,7 @@
       modeTabs: [['hide', 'Hide & reveal'], ['hidden', 'Fill blanks'], ['bank', 'Word bank'], ['type', 'Type it']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.tab(id === st.mode) })),
 
       // passage
-      hasPassage: !!p, reference: p ? p.reference : this.buildRef(), versionLabel: p ? p.version : st.version,
+      hasPassage: !!p, reference: p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef()), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
       modeHint: modeHints[st.mode] || '',
       practice: this.renderPractice(),
 
@@ -131,6 +166,7 @@
 
       // attribution
       isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', openCopyright: this.openCopyright,
+      isCreedDoc: !!p && !!p.kind, creedNote: (p && p.attribution) ? p.attribution : '',
 
       // settings
       settingsOpen: st.settingsOpen, closeSettings: this.closeSettings, stop: this.stop,

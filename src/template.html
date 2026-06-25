@@ -61,7 +61,7 @@
       <div style="display:flex;flex-direction:column;gap:6px;padding:6px 0 2px;">
         <div style="font-size:12px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;">Scripture memory</div>
         <h1 style="margin:0;font-family:'Gentium Book Plus',serif;font-weight:700;font-size:clamp(30px,6vw,44px);line-height:1.08;">Hide his word<br />in your heart</h1>
-        <p style="margin:6px 0 0;color:var(--muted);font-size:15px;max-width:50ch;line-height:1.55;">Learn a verse, a paragraph, or a whole chapter — one gentle pass at a time. Pick a passage, then choose how you want to practice.</p>
+        <p style="margin:6px 0 0;color:var(--muted);font-size:15px;max-width:50ch;line-height:1.55;">Learn a verse, a whole chapter, or a creed or catechism — one gentle pass at a time. Pick a passage, then choose how you want to practice.</p>
       </div>
     </sc-if>
 
@@ -83,24 +83,43 @@
       <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
         <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);">
           <div style="display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;align-self:flex-start;">
-            <sc-for list="{{ versions }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.onClick }}" style="{{ v.style }}">{{ v.label }}</button></sc-for>
+            <sc-for list="{{ corpusOpts }}" as="c" hint-placeholder-count="2"><button onClick="{{ c.onClick }}" style="{{ c.style }}">{{ c.label }}</button></sc-for>
           </div>
-          <div style="display:flex;gap:10px;flex-wrap:wrap;">
-            <select value="{{ book }}" onChange="{{ onBook }}" style="{{ selectStyle }}"><sc-for list="{{ books }}" as="b" hint-placeholder-count="12"><option value="{{ b.name }}">{{ b.name }}</option></sc-for></select>
-            <sc-if value="{{ showChapter }}" hint-placeholder-val="{{ true }}"><select value="{{ chapter }}" onChange="{{ onChapter }}" style="{{ chapterSelectStyle }}"><sc-for list="{{ chapterList }}" as="c" hint-placeholder-count="10"><option value="{{ c }}">{{ c }}</option></sc-for></select></sc-if>
-          </div>
-          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <sc-if value="{{ versesKnown }}" hint-placeholder-val="{{ true }}">
-              <label style="font-size:14px;color:var(--muted);display:inline-flex;align-items:center;gap:7px;">Verses<select value="{{ vStart }}" onChange="{{ onVStart }}" style="{{ verseSelectStyle }}"><sc-for list="{{ verseOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select>to<select value="{{ vEndValue }}" onChange="{{ onVEnd }}" style="{{ verseSelectStyle }}"><sc-for list="{{ verseOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select></label>
-              <button onClick="{{ setWhole }}" style="{{ wholeBtn }}">{{ wholeLabel }}</button>
+
+          <sc-if value="{{ isBible }}" hint-placeholder-val="{{ true }}">
+            <div style="display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;align-self:flex-start;">
+              <sc-for list="{{ versions }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.onClick }}" style="{{ v.style }}">{{ v.label }}</button></sc-for>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <select value="{{ book }}" onChange="{{ onBook }}" style="{{ selectStyle }}"><sc-for list="{{ books }}" as="b" hint-placeholder-count="12"><option value="{{ b.name }}">{{ b.name }}</option></sc-for></select>
+              <sc-if value="{{ showChapter }}" hint-placeholder-val="{{ true }}"><select value="{{ chapter }}" onChange="{{ onChapter }}" style="{{ chapterSelectStyle }}"><sc-for list="{{ chapterList }}" as="c" hint-placeholder-count="10"><option value="{{ c }}">{{ c }}</option></sc-for></select></sc-if>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <sc-if value="{{ versesKnown }}" hint-placeholder-val="{{ true }}">
+                <label style="font-size:14px;color:var(--muted);display:inline-flex;align-items:center;gap:7px;">Verses<select value="{{ vStart }}" onChange="{{ onVStart }}" style="{{ verseSelectStyle }}"><sc-for list="{{ verseOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select>to<select value="{{ vEndValue }}" onChange="{{ onVEnd }}" style="{{ verseSelectStyle }}"><sc-for list="{{ verseOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select></label>
+                <button onClick="{{ setWhole }}" style="{{ wholeBtn }}">{{ wholeLabel }}</button>
+              </sc-if>
+              <sc-if value="{{ versesUnknown }}" hint-placeholder-val="{{ false }}">
+                <span style="font-size:13px;color:var(--muted);">Counting verses… the whole chapter will load.</span>
+              </sc-if>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ isCreeds }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;gap:10px;flex-wrap:wrap;">
+              <select value="{{ creedId }}" onChange="{{ onCreed }}" style="{{ selectStyle }}"><sc-for list="{{ creedDocs }}" as="d" hint-placeholder-count="7"><option value="{{ d.id }}">{{ d.title }}</option></sc-for></select>
+            </div>
+            <sc-if value="{{ isCatechism }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+                <label style="font-size:14px;color:var(--muted);display:inline-flex;align-items:center;gap:7px;">Questions<select value="{{ qStart }}" onChange="{{ onQStart }}" style="{{ verseSelectStyle }}"><sc-for list="{{ qOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select>to<select value="{{ qEndValue }}" onChange="{{ onQEnd }}" style="{{ verseSelectStyle }}"><sc-for list="{{ qOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select></label>
+              </div>
             </sc-if>
-            <sc-if value="{{ versesUnknown }}" hint-placeholder-val="{{ false }}">
-              <span style="font-size:13px;color:var(--muted);">Counting verses… the whole chapter will load.</span>
-            </sc-if>
-          </div>
+            <span style="font-size:13px;color:var(--muted);">{{ creedHint }}</span>
+          </sc-if>
+
           <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
             <button onClick="{{ load }}" style="{{ loadBtn }}">{{ loadLabel }}</button>
-            <span style="font-size:13px;color:var(--muted);">Up to one chapter at a time.</span>
+            <span style="font-size:13px;color:var(--muted);">{{ loadHint }}</span>
           </div>
         </div>
       </sc-if>
@@ -202,6 +221,9 @@
     </sc-if>
     <sc-if value="{{ isTr }}" hint-placeholder-val="{{ false }}">
       <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">Greek New Testament · Tischendorf (8th critical edition, 1869–72) — public domain. Text served by <a href="https://bolls.life" target="_blank" rel="noopener" style="color:var(--accent);">bolls.life</a>.</div>
+    </sc-if>
+    <sc-if value="{{ isCreedDoc }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">{{ creedNote }}</div>
     </sc-if>
     </div>
     </sc-if>
