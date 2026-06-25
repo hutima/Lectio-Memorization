@@ -301,6 +301,22 @@ input[type=range]{accent-color:var(--accent);}
     </div>
   </sc-if>
 
+  <sc-if value="{{ updateReady }}" hint-placeholder-val="{{ false }}">
+    <div style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:60;display:flex;justify-content:center;align-items:flex-end;padding:20px;">
+      <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;max-width:420px;width:100%;margin-bottom:calc(8px + env(safe-area-inset-bottom));padding:22px;display:flex;flex-direction:column;gap:14px;box-shadow:0 18px 50px rgba(0,0,0,.25);">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <span style="width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-family:'Gentium Book Plus',serif;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;">↻</span>
+          <h3 style="margin:0;font-family:'Gentium Book Plus',serif;font-size:21px;flex:1;">Update available</h3>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.6;color:var(--muted);">A newer version of Lectio is ready. Refresh to load the latest — your progress and settings are kept.</p>
+        <div style="display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;">
+          <button onClick="{{ dismissUpdate }}" style="{{ ghostBtn }}">Later</button>
+          <button onClick="{{ applyUpdate }}" style="{{ primaryBtn }}">Refresh now</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props="{
@@ -331,6 +347,7 @@ class Component extends DCLogic {
     typeIdx: 0, typeInput: '', typeErrors: 0,
     progress: {}, streak: { count: 0, last: null },
     cacheCount: 0, usageToday: 0,
+    updateReady: false,
   };
 
   BOOKS = [
@@ -386,10 +403,47 @@ class Component extends DCLogic {
     this._onMM = () => { if (this.state.theme === 'system') this.applyTheme('system'); };
     this._mm.addEventListener('change', this._onMM);
 
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+    this.registerServiceWorker();
     this.maybeRemind();
   }
-  componentWillUnmount() { if (this._mm) this._mm.removeEventListener('change', this._onMM); }
+  componentWillUnmount() {
+    if (this._mm) this._mm.removeEventListener('change', this._onMM);
+    if (this._onVisible) document.removeEventListener('visibilitychange', this._onVisible);
+  }
+
+  // ---------- app updates (service worker) ----------
+  // A new build leaves its worker in "waiting" (sw.js no longer self-skipWaiting), so we
+  // surface a refresh prompt instead of letting users sit on a stale cached shell.
+  registerServiceWorker = () => {
+    if (!('serviceWorker' in navigator)) return;
+    // Reload exactly once, and only after the user accepts the update (this._updating),
+    // so the controllerchange from a first-ever install never reloads mid-session.
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (this._updating && !this._reloaded) { this._reloaded = true; window.location.reload(); }
+    });
+    navigator.serviceWorker.register('sw.js').then((reg) => {
+      if (!reg) return;
+      this._swReg = reg;
+      // An update could already be waiting from a previous visit.
+      if (reg.waiting && navigator.serviceWorker.controller) this.setState({ updateReady: true });
+      reg.addEventListener('updatefound', () => {
+        const sw = reg.installing; if (!sw) return;
+        sw.addEventListener('statechange', () => {
+          // Installed while an old worker still controls the page → a fresh build is ready.
+          if (sw.state === 'installed' && navigator.serviceWorker.controller) this.setState({ updateReady: true });
+        });
+      });
+      // Re-check for a new build when the app regains focus (long-lived PWA sessions).
+      this._onVisible = () => { if (!document.hidden) { try { reg.update(); } catch (e) {} } };
+      document.addEventListener('visibilitychange', this._onVisible);
+    }).catch(() => {});
+  };
+  applyUpdate = () => {
+    const sw = this._swReg && this._swReg.waiting;
+    if (sw) { this._updating = true; sw.postMessage('skip-waiting'); }
+    else { window.location.reload(); }
+  };
+  dismissUpdate = () => this.setState({ updateReady: false });
 
   // ---------- theme ----------
   applyTheme = (theme) => {
@@ -914,6 +968,9 @@ class Component extends DCLogic {
       usageVisible: st.usageToday > 0, usageToday: st.usageToday.toLocaleString(),
 
       copyrightOpen: st.copyrightOpen, closeCopyright: this.closeCopyright,
+
+      // app update prompt
+      updateReady: st.updateReady, applyUpdate: this.applyUpdate, dismissUpdate: this.dismissUpdate,
     };
   }
 }

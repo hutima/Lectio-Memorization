@@ -1,5 +1,5 @@
 /* Lectio service worker — app-shell + font caching. Scripture text is cached in localStorage by the app (ESV capped at 500 verses per terms), never here. */
-const CACHE = 'lectio-shell-v3';
+const CACHE = 'lectio-shell-v4';
 const ASSETS = [
   './',
   './index.html',
@@ -12,8 +12,9 @@ const ASSETS = [
 ];
 
 self.addEventListener('install', (e) => {
+  // No skipWaiting() here: a new worker stays in "waiting" so the app can show its
+  // "update available" prompt and activate on the user's command (see 'skip-waiting').
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS).catch(() => {})));
-  self.skipWaiting();
 });
 
 self.addEventListener('activate', (e) => {
@@ -27,6 +28,10 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('message', (e) => {
   if (e.data === 'clear-cache') {
     caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
+  } else if (e.data === 'skip-waiting') {
+    // The app's update prompt was accepted: activate now and take over (clients.claim
+    // in 'activate' fires controllerchange, which the app uses to reload once).
+    self.skipWaiting();
   }
 });
 
