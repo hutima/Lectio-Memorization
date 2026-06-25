@@ -511,6 +511,7 @@ class Component extends DCLogic {
     cacheCount: 0, usageToday: 0,
     updateReady: false, updateMsg: '',
     kbInset: 0,
+    canonOpen: {},
   };
 
   BOOKS = [
@@ -737,7 +738,11 @@ class Component extends DCLogic {
   posPool = (pos) => { const p = this.POS_POOL; if (pos && p[pos]) return p[pos]; return p.n.concat(p.v, p.adj); };
 
   // ---------- text utils ----------
-  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
+  // Normalize a word for matching: fold case + diacritics + Greek final sigma, then
+  // drop EVERY non-alphanumeric — including apostrophes (curly or straight). So a
+  // possessive/contraction matches whether or not the punctuation is typed ("Lords"
+  // == "Lord's", "dont" == "don't"). Used by all graded modes (Test, Fill, Bank).
+  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[^\p{L}\p{N}]/gu, '');
   stripHtml = (s) => (s || '').replace(/<S>.*?<\/S>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   // Collapse whitespace and clip to n chars (with an ellipsis) — used for the
   // catechism question labels in the picker dropdown.
@@ -805,6 +810,9 @@ class Component extends DCLogic {
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
     this._revealPrev = null;
+    // Reset the per-test "already counted as practice" flag so the next Test attempt
+    // bumps the streak/heatmap once, then refines its partial score silently.
+    this._typeScored = false;
     this.setState({
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
@@ -1099,13 +1107,21 @@ class Component extends DCLogic {
   recordResult = (acc, opts = {}) => {
     const key = this.passageKey(); if (!key) return;
     const prog = { ...this.state.progress }; const cur = prog[key] || { best: 0, learned: false, attempts: 0 };
-    cur.best = Math.max(cur.best, acc); cur.attempts++; cur.lastMode = this.state.mode;
+    cur.best = Math.max(cur.best, acc); cur.lastMode = this.state.mode;
     // "Test" mode is the yardstick for how much of the passage is known: store its
     // latest score as the passage's known level (a fresh test reflects current recall).
+    // Test also carries a per-verse breakdown so a partial retest only reassesses the
+    // verses actually typed into — untouched verses keep their stored score.
     if (opts.known) cur.known = acc;
+    if (opts.verseKnown) cur.verseKnown = opts.verseKnown;
+    // A silent update is a live/partial refinement (Test mode scores as you type, so
+    // partial credit on a long passage is captured even if you never fill every word).
+    // It updates best/known but is NOT a fresh attempt and must not re-bump the
+    // streak/heatmap — only the first scored keystroke of a test counts as practice.
+    if (!opts.silent) cur.attempts++;
     prog[key] = cur;
     this.setState({ progress: prog }); try { localStorage.setItem('lectio.progress', JSON.stringify(prog)); } catch (e) {}
-    this.markPracticed();
+    if (!opts.silent) this.markPracticed();
   };
   markPracticed = () => {
     const today = new Date().toISOString().slice(0, 10);
@@ -1545,11 +1561,40 @@ class Component extends DCLogic {
   };
   // A revealed word counts wrong even though it shows the right text, so exclude it.
   typeCorrect = (vi) => !this.state.typeReveal[vi] && this.norm(this.state.typeVals[vi]) === this.norm(this.state.passage.words[vi].text);
+  // Group every word index by the verse it belongs to ({ verse -> [vi, ...] }).
+  typeVerseGroups = () => { const p = this.state.passage; const g = {}; if (p) p.words.forEach((w) => { (g[w.v] = g[w.v] || []).push(w.vi); }); return g; };
+  // Score the Test continuously so partial credit is captured, but assess it PER VERSE.
+  // Blanks count as wrong, so a verse's score reflects how much of it you've recalled.
+  // Crucially, a verse is only reassessed when it's reattempted — i.e. something is
+  // typed (or revealed) inside it this test. Verses you leave untouched keep their
+  // previously stored score, so a partial retest of a long passage never wipes out the
+  // credit you already earned for the verses you're not retyping. The passage-level
+  // known % is the word-weighted average of the per-verse scores. The first scored
+  // keystroke counts as today's practice; later keystrokes refine silently (no repeated
+  // streak/heatmap bumps).
   checkTypeDone = () => {
-    const p = this.state.passage; if (!p) return; const ws = this.typeWords();
-    if (!ws.every((vi) => (this.state.typeVals[vi] || '').trim().length > 0)) return;
-    const correct = ws.filter((vi) => this.typeCorrect(vi)).length;
-    this.recordResult(correct / ws.length, { known: true });
+    const p = this.state.passage; if (!p) return; const ws = this.typeWords(); if (!ws.length) return;
+    const vals = this.state.typeVals, reveal = this.state.typeReveal;
+    if (!ws.some((vi) => (vals[vi] || '').trim().length > 0)) return;
+    const groups = this.typeVerseGroups();
+    const cur = this.state.progress[this.passageKey()] || {};
+    const prev = cur.verseKnown || {};
+    // Baseline for a verse never scored per-verse before: fall back to the passage's
+    // old whole-passage known % so upgrading from the previous (all-or-nothing) scoring
+    // doesn't drop credit on the first partial retest.
+    const base = cur.known != null ? cur.known : 0;
+    const verseKnown = {}; let total = 0, sum = 0;
+    Object.keys(groups).forEach((v) => {
+      const idxs = groups[v];
+      const touched = idxs.some((vi) => (vals[vi] || '').trim().length > 0 || reveal[vi]);
+      // Reattempted verse -> reassess (overwrite, even if lower). Otherwise keep its
+      // stored per-verse score, or the legacy baseline if it has none yet.
+      const score = touched ? idxs.filter((vi) => this.typeCorrect(vi)).length / idxs.length
+        : (prev[v] != null ? prev[v] : base);
+      verseKnown[v] = score; total += idxs.length; sum += score * idxs.length;
+    });
+    this.recordResult(total ? sum / total : 0, { known: true, silent: this._typeScored, verseKnown });
+    this._typeScored = true;
   };
 
   renderWord_type = (s, key) => {
@@ -1575,8 +1620,10 @@ class Component extends DCLogic {
     if (p && ws.length) {
       const total = ws.length;
       const filled = ws.filter((vi) => (st.typeVals[vi] || '').trim().length > 0).length;
-      if (filled < total) typeStatus = filled + ' / ' + total + ' words';
-      else { const correct = ws.filter((vi) => this.typeCorrect(vi)).length; typeStatus = correct + ' / ' + total + ' correct'; }
+      const correct = ws.filter((vi) => this.typeCorrect(vi)).length;
+      // Always show the running score (blanks count as wrong) so partial credit is
+      // visible on long passages; while words remain, also note how many are filled.
+      typeStatus = filled < total ? (correct + ' / ' + total + ' correct · ' + filled + ' filled') : (correct + ' / ' + total + ' correct');
     }
     return { isType: st.mode === 'type', typeStatus, revealTypeWord: this.revealTypeWord };
   };
@@ -1687,10 +1734,37 @@ class Component extends DCLogic {
   // the bin shows the average of their 0/1/2 status. The bins are flex children, so
   // they always fill the width — the pixel estimate only sets the resolution.
   canonBins = () => { const w = Math.min((typeof window !== 'undefined' && window.innerWidth) || 380, 820) - 56; return Math.max(24, Math.floor(w / 2)); };
-  renderBar = (data, a, b, key) => {
+  renderBar = (data, a, b, key, height) => {
     const h = React.createElement; const len = b - a; const bins = Math.max(1, Math.min(len, this.canonBins())); const cells = [];
     for (let i = 0; i < bins; i++) { const s = a + Math.floor(i * len / bins); const e = a + Math.floor((i + 1) * len / bins); const n = Math.max(1, e - s); cells.push(h('div', { key: i, style: { flex: '1 1 0', background: this.canonColor((data.pre[e] - data.pre[s]) / n) } })); }
-    return h('div', { key, style: { display: 'flex', height: '26px', borderRadius: '7px', overflow: 'hidden', border: '1px solid var(--line)' } }, cells);
+    return h('div', { key, style: { display: 'flex', height: (height || 26) + 'px', borderRadius: '7px', overflow: 'hidden', border: '1px solid var(--line)' } }, cells);
+  };
+
+  // ---------- per-book drill-down ----------
+  // Flat verse range [a,b) of every book, derived once from the canon geometry:
+  // off[bi][0] starts book bi, and the next book's start (or the canon total for the
+  // last book) ends it. Lets a tapped canon bar expand into one mini-bar per book.
+  bookRanges = () => {
+    if (this._branges) return this._branges;
+    const { off, total } = this.canonGeom();
+    return (this._branges = this.BOOKS.map((b, bi) => ({ bi, name: b.name, a: off[bi][0], b: bi + 1 < off.length ? off[bi + 1][0] : total })));
+  };
+  // Tapping a canon bar toggles its per-book breakdown (keyed 'all' / 'ot' / 'nt').
+  toggleCanon = (key) => { const open = { ...(this.state.canonOpen || {}) }; open[key] = !open[key]; this.setState({ canonOpen: open }); };
+  // The expanded list: one row per book within [a,b) — name, a mini status bar, and
+  // how many of its verses you've seen. Books with no progress stay muted.
+  renderBookList = (data, a, b, key) => {
+    const h = React.createElement;
+    const rows = this.bookRanges().filter((r) => r.b > a && r.a < b).map((r) => {
+      let seen = 0; for (let i = r.a; i < r.b; i++) if (data.status[i] >= 1) seen++;
+      const total = r.b - r.a;
+      return h('div', { key: r.bi, style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
+        h('div', { key: 'nm', style: { width: '108px', flex: 'none', fontSize: '12px', color: seen ? 'var(--text)' : 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, r.name),
+        h('div', { key: 'br', style: { flex: 1, minWidth: 0 } }, this.renderBar(data, r.a, r.b, key + 'b' + r.bi, 14)),
+        h('div', { key: 'ct', style: { width: '58px', flex: 'none', textAlign: 'right', fontSize: '11px', color: seen ? 'var(--text)' : 'var(--muted)' } }, seen + ' / ' + total),
+      ]);
+    });
+    return h('div', { key: key + 'list', style: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid var(--line)' } }, rows);
   };
 
   // ---------- practice heatmap (GitHub-style) ----------
@@ -1739,13 +1813,27 @@ class Component extends DCLogic {
     ], 'heat');
 
     const pct = Math.round((data.seenN / data.total) * 1000) / 10;
+    const open = this.state.canonOpen || {};
+    // A tappable canon bar: its label (with a rotating chevron) and the bar itself
+    // toggle a per-book breakdown, so you can drill from the whole canon down to which
+    // books you've seen without leaving the overview. `caption` sits beneath the bar.
+    const barGroup = (a, b, key, label, caption) => {
+      const isOpen = !!open[key];
+      const head = h('div', { key: 'hd', onClick: () => this.toggleCanon(key), style: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--muted)', cursor: 'pointer', touchAction: 'manipulation' } },
+        h('span', { style: { display: 'inline-block', transition: 'transform .15s ease', transform: isOpen ? 'rotate(90deg)' : 'none', fontSize: '10px' } }, '▶'), label);
+      return h('div', { key, style: { display: 'flex', flexDirection: 'column', gap: '5px' } }, [
+        head,
+        h('div', { key: 'br', onClick: () => this.toggleCanon(key), style: { cursor: 'pointer', touchAction: 'manipulation' } }, this.renderBar(data, a, b, key + 'bar')),
+        caption ? h('div', { key: 'cap', style: { fontSize: '11px', color: 'var(--muted)' } }, caption) : null,
+        isOpen ? this.renderBookList(data, a, b, key) : null,
+      ]);
+    };
     const canon = this.card([
       this.sectionTitle('THE WHOLE BIBLE', 'st'),
       h('div', { key: 'sum', style: { fontSize: '13px', color: 'var(--text)' } }, h('strong', null, fmt(data.seenN)), ' of ', fmt(data.total), ' verses seen', h('span', { style: { color: 'var(--muted)' } }, '  ·  ' + fmt(data.doneN) + ' memorized  ·  ' + pct + '%')),
-      this.renderBar(data, 0, data.total, 'all'),
-      h('div', { key: 'c', style: { fontSize: '11px', color: 'var(--muted)' } }, 'Genesis → Revelation — every verse in order, equal width.'),
-      h('div', { key: 'ot', style: { display: 'flex', flexDirection: 'column', gap: '5px', marginTop: '4px' } }, h('div', { style: { fontSize: '12px', color: 'var(--muted)' } }, 'Old Testament'), this.renderBar(data, 0, data.otEnd, 'otb')),
-      h('div', { key: 'nt', style: { display: 'flex', flexDirection: 'column', gap: '5px' } }, h('div', { style: { fontSize: '12px', color: 'var(--muted)' } }, 'New Testament'), this.renderBar(data, data.otEnd, data.total, 'ntb')),
+      barGroup(0, data.total, 'all', 'Genesis → Revelation', 'Every verse in order, equal width — tap any bar to break it down by book.'),
+      barGroup(0, data.otEnd, 'ot', 'Old Testament', null),
+      barGroup(data.otEnd, data.total, 'nt', 'New Testament', null),
       h('div', { key: 'lg', style: { display: 'flex', gap: '14px', flexWrap: 'wrap', marginTop: '2px' } }, this.swatch(this.mix(s.a, s.a, 0), 'Unseen'), this.swatch(this.mix(s.a, s.b, 1), 'Seen'), this.swatch(this.mix(s.b, s.c, 1), 'Memorized')),
     ], 'canon');
 

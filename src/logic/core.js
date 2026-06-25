@@ -34,6 +34,7 @@
     cacheCount: 0, usageToday: 0,
     updateReady: false, updateMsg: '',
     kbInset: 0,
+    canonOpen: {},
   };
 
   BOOKS = [
@@ -260,7 +261,11 @@
   posPool = (pos) => { const p = this.POS_POOL; if (pos && p[pos]) return p[pos]; return p.n.concat(p.v, p.adj); };
 
   // ---------- text utils ----------
-  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
+  // Normalize a word for matching: fold case + diacritics + Greek final sigma, then
+  // drop EVERY non-alphanumeric — including apostrophes (curly or straight). So a
+  // possessive/contraction matches whether or not the punctuation is typed ("Lords"
+  // == "Lord's", "dont" == "don't"). Used by all graded modes (Test, Fill, Bank).
+  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[^\p{L}\p{N}]/gu, '');
   stripHtml = (s) => (s || '').replace(/<S>.*?<\/S>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   // Collapse whitespace and clip to n chars (with an ellipsis) — used for the
   // catechism question labels in the picker dropdown.
@@ -328,6 +333,9 @@
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
     this._revealPrev = null;
+    // Reset the per-test "already counted as practice" flag so the next Test attempt
+    // bumps the streak/heatmap once, then refines its partial score silently.
+    this._typeScored = false;
     this.setState({
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
@@ -622,13 +630,21 @@
   recordResult = (acc, opts = {}) => {
     const key = this.passageKey(); if (!key) return;
     const prog = { ...this.state.progress }; const cur = prog[key] || { best: 0, learned: false, attempts: 0 };
-    cur.best = Math.max(cur.best, acc); cur.attempts++; cur.lastMode = this.state.mode;
+    cur.best = Math.max(cur.best, acc); cur.lastMode = this.state.mode;
     // "Test" mode is the yardstick for how much of the passage is known: store its
     // latest score as the passage's known level (a fresh test reflects current recall).
+    // Test also carries a per-verse breakdown so a partial retest only reassesses the
+    // verses actually typed into — untouched verses keep their stored score.
     if (opts.known) cur.known = acc;
+    if (opts.verseKnown) cur.verseKnown = opts.verseKnown;
+    // A silent update is a live/partial refinement (Test mode scores as you type, so
+    // partial credit on a long passage is captured even if you never fill every word).
+    // It updates best/known but is NOT a fresh attempt and must not re-bump the
+    // streak/heatmap — only the first scored keystroke of a test counts as practice.
+    if (!opts.silent) cur.attempts++;
     prog[key] = cur;
     this.setState({ progress: prog }); try { localStorage.setItem('lectio.progress', JSON.stringify(prog)); } catch (e) {}
-    this.markPracticed();
+    if (!opts.silent) this.markPracticed();
   };
   markPracticed = () => {
     const today = new Date().toISOString().slice(0, 10);
