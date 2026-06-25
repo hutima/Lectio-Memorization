@@ -253,8 +253,17 @@ input[type=range]{accent-color:var(--accent);}
       </div>
     </sc-if>
 
-    <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3.4vw,32px);min-height:200px;">
-      {{ practice }}
+    <div style="position:relative;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3.4vw,32px);min-height:200px;overflow:hidden;">
+      <div style="{{ practiceDimStyle }}">{{ practice }}</div>
+      <sc-if value="{{ selDirty }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:clamp(24px,9vh,90px) 18px 18px;">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;box-shadow:0 14px 36px rgba(0,0,0,.22);max-width:340px;text-align:center;">
+            <div style="font-family:'Gentium Book Plus',serif;font-size:19px;font-weight:700;">New passage selected</div>
+            <div style="font-size:13px;color:var(--muted);line-height:1.5;">Load <strong style="color:var(--text);">{{ pendingRef }}</strong> to practise it — the passage on screen stays until you do.</div>
+            <button onClick="{{ loadNew }}" style="{{ loadNewBtn }}">{{ loadNewLabel }}</button>
+          </div>
+        </div>
+      </sc-if>
     </div>
 
     <sc-if value="{{ hasPassage }}" hint-placeholder-val="{{ true }}">
@@ -512,6 +521,7 @@ class Component extends DCLogic {
     updateReady: false, updateMsg: '',
     kbInset: 0,
     canonOpen: {},
+    loadedSig: null,
   };
 
   BOOKS = [
@@ -576,7 +586,9 @@ class Component extends DCLogic {
     this.setState(next, () => { this.applyTheme(theme); this.ensureVerseCount(); });
 
     const p = this.buildPassage(this.SAMPLE.reference, this.SAMPLE.version, this.SAMPLE.verses);
-    this.setState({ passage: p }, () => this.initModes(p));
+    // Stamp the sample's signature so a restored selector that differs from the sample
+    // shown on screen is correctly flagged as a pending (unloaded) change.
+    this.setState({ passage: p, loadedSig: 'bible|' + this.SAMPLE.version + '|' + this.SAMPLE.reference }, () => this.initModes(p));
 
     this._mm = matchMedia('(prefers-color-scheme:dark)');
     this._onMM = () => { if (this.state.theme === 'system') this.applyTheme('system'); };
@@ -918,6 +930,18 @@ class Component extends DCLogic {
   };
   isWholeSel = () => { const count = this.curVerseCount(); const s = parseInt(this.state.vStart || '1', 10) || 1; const eRaw = (this.state.vEnd || '').trim(); return s <= 1 && (!eRaw || (count && parseInt(eRaw, 10) >= count)); };
   persistSel = () => { try { localStorage.setItem('lectio.sel', JSON.stringify({ book: this.state.book, chapter: this.state.chapter, vStart: this.state.vStart, vEnd: this.state.vEnd })); } catch (e) {} };
+  // A signature of what the selector currently points at. Compared against the
+  // signature stamped when the displayed passage was loaded (`loadedSig`) so the UI
+  // can tell when the selection has moved on from what's on screen. Suggested is a
+  // tap-to-load launcher (no manual Load), so it never counts as a pending change.
+  selSig = () => {
+    const st = this.state;
+    if (st.corpus === 'creeds') return 'creeds|' + (st.creedId || '') + '|' + (st.creedLang || '') + '|' + (st.ldMode ? 'L' + (st.ldStart || '') : 'Q' + (st.qStart || ''));
+    return 'bible|' + st.version + '|' + this.buildRef();
+  };
+  // True when the selector has been changed to a different passage than the one shown,
+  // so the practice area can grey out and prompt to load the new selection.
+  selDirty = () => this.state.corpus !== 'suggested' && !!this.state.passage && this.state.loadedSig != null && this.selSig() !== this.state.loadedSig;
   togglePicker = () => { const open = !this.state.pickerOpen; this.setState({ pickerOpen: open }); if (open) this.ensureVerseCount(); };
   onBook = (e) => { this.setState({ book: e.target.value, chapter: '1', vStart: '1', vEnd: '' }, () => this.ensureVerseCount()); };
   onChapter = (e) => this.setState({ chapter: e.target.value, vStart: '1', vEnd: '' }, () => this.ensureVerseCount());
@@ -926,8 +950,10 @@ class Component extends DCLogic {
   setWhole = () => { const count = this.curVerseCount(); this.setState({ vStart: '1', vEnd: count ? String(count) : '' }); };
   onRefKey = (e) => { if (e.key === 'Enter') this.doLoad(); };
   doLoad = () => {
-    if (this.state.corpus === 'creeds') { this.loadCreed(); return; }
-    const ref = this.buildRef(); this.persistSel(); this.setState({ refInput: ref, pickerOpen: false }, () => this.runLoad());
+    // Stamp the selection now so the just-loaded passage no longer reads as "changed".
+    const sig = this.selSig();
+    if (this.state.corpus === 'creeds') { this.setState({ loadedSig: sig }); this.loadCreed(); return; }
+    const ref = this.buildRef(); this.persistSel(); this.setState({ refInput: ref, pickerOpen: false, loadedSig: sig }, () => this.runLoad());
   };
   setVersion = (v) => {
     const upd = { version: v, error: null, offerKjv: false };
@@ -1996,6 +2022,7 @@ class Component extends DCLogic {
     const isBible = st.corpus === 'bible';
     const isCreeds = st.corpus === 'creeds';
     const isSuggested = st.corpus === 'suggested';
+    const selDirty = this.selDirty();
     const curCreed = isCreeds ? this.creedDoc() : null;
     // A multilingual creed (e.g. the Lord's Prayer) exposes a language toggle.
     const creedLangs = curCreed ? this.creedLangList(curCreed) : null;
@@ -2110,6 +2137,12 @@ class Component extends DCLogic {
       hasPassage: !!p, reference: p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef()), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
       modeHint: modeHints[st.mode] || '',
       practice: this.renderPractice(),
+      // When the selector points at a different passage than the one on screen, grey the
+      // current text out and prompt to load the new selection (instead of silently
+      // carrying the old passage over under a changed reference).
+      selDirty, pendingRef: isCreeds ? this.creedRefPreview() : this.buildRef(),
+      loadNew: this.doLoad, loadNewBtn: primaryBtn, loadNewLabel: st.loading ? 'Loading…' : 'Load new passage',
+      practiceDimStyle: selDirty ? { opacity: 0.32, filter: 'blur(2.5px)', pointerEvents: 'none', userSelect: 'none', transition: 'opacity .15s,filter .15s' } : { transition: 'opacity .15s,filter .15s' },
 
       // ease slider (top of passage)
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
