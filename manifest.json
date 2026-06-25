@@ -1,0 +1,16 @@
+{
+  "name": "Lectio — Scripture Memory",
+  "short_name": "Lectio",
+  "description": "Memorize Scripture a passage at a time — up to a full chapter.",
+  "start_url": "./Lectio.dc.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f1ece0",
+  "theme_color": "#3b6e4f",
+  "categories": ["education", "lifestyle"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
