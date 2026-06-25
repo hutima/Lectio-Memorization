@@ -248,7 +248,10 @@
       <div style="font-size:11px;color:var(--muted);padding-top:4px;">King James Version — public domain.</div>
     </sc-if>
     <sc-if value="{{ isTr }}" hint-placeholder-val="{{ false }}">
-      <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">Greek New Testament · Tischendorf (8th critical edition, 1869–72) — public domain. Text served by <a href="https://bolls.life" target="_blank" rel="noopener" style="color:var(--accent);">bolls.life</a>.</div>
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">Greek New Testament · Tischendorf 8th critical edition (1869–72) — public domain. Online text from <a href="https://bolls.life" target="_blank" rel="noopener" style="color:var(--accent);">bolls.life</a>, with a bundled offline copy.</div>
+    </sc-if>
+    <sc-if value="{{ isLxx }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">Septuagint (LXX) · Swete's text. Online from <a href="https://bolls.life" target="_blank" rel="noopener" style="color:var(--accent);">bolls.life</a>; bundled offline copy from the Open Greek &amp; Latin <a href="https://github.com/OpenGreekAndLatin/First1KGreek" target="_blank" rel="noopener" style="color:var(--accent);">First1KGreek</a> project — <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener" style="color:var(--accent);">CC BY-SA 4.0</a>, lightly cleaned.</div>
     </sc-if>
     <sc-if value="{{ isCreedDoc }}" hint-placeholder-val="{{ false }}">
       <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">{{ creedNote }}</div>
