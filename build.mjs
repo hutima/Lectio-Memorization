@@ -27,6 +27,12 @@ const helmet = src('helmet.html').trimEnd();
 const template = src('template.html').trim();
 const props = src('props.json').trimEnd();
 
+// Embedded public-domain creeds & catechisms (src/creeds.json). This is pure data,
+// so it is injected as a plain <script> global (window.LECTIO_CREEDS) BEFORE the
+// dc-runtime's logic script — keeping ~160KB of text out of the Babel transform the
+// runtime runs on every load. Minify for size and escape "<" for safe <script> embedding.
+const creedsData = JSON.stringify(JSON.parse(src('creeds.json'))).replace(/</g, '\\u003c');
+
 // The component logic is split by concern under src/logic/ for editability, but the
 // dc-runtime needs a single `class Component extends DCLogic`. Each file is a
 // CLASS-BODY FRAGMENT (members only); we concatenate them inside one class here.
@@ -57,6 +63,7 @@ const html =
   '<helmet>\n' + helmet + '\n</helmet>\n\n' +
   template + '\n' +
   '</x-dc>\n' +
+  '<script>window.LECTIO_CREEDS=' + creedsData + ';</script>\n' +
   '<script type="text/x-dc" data-dc-script data-props="' + escapeAttr(props) + '">\n' +
   logic + '\n' +
   '</script>\n</body>\n</html>\n';

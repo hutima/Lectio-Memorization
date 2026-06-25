@@ -15,6 +15,7 @@
     view: 'home',
     pickerOpen: false,
     book: 'Psalms', chapter: '23', vStart: '1', vEnd: '',
+    corpus: 'bible', creedId: 'apostles', qStart: '1', qEnd: '1',
     refInput: 'Psalms 23', verseCounts: {},
     loading: false, error: null, offerKjv: false,
     passage: null, mode: 'hide',
@@ -56,6 +57,12 @@
     ],
   };
 
+  // Embedded public-domain creeds & catechisms. The data is injected by build.mjs as a
+  // plain <script> global (window.LECTIO_CREEDS) so the dc-runtime's per-load Babel
+  // transform never has to re-parse ~160KB of text. Each doc is either a `creed`
+  // (paras: string[]) or a `catechism` (items: {n, q, a}[]). See src/creeds.json.
+  CREEDS = (typeof window !== 'undefined' && window.LECTIO_CREEDS) || [];
+
   componentDidMount() {
     const g = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } };
     const gj = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch (e) { return d; } };
@@ -76,6 +83,10 @@
       usageToday: this.usage().count,
     };
     if (sel && sel.book) { next.book = sel.book; next.chapter = sel.chapter; next.vStart = sel.vStart || '1'; next.vEnd = sel.vEnd || ''; }
+    // Remember the last creeds picker selection (the displayed passage still starts
+    // on the Scripture sample below; corpus stays 'bible' until the user switches).
+    const csel = gj('lectio.creedsel', null);
+    if (csel && csel.creedId) { next.creedId = csel.creedId; next.qStart = csel.qStart || '1'; next.qEnd = csel.qEnd || '1'; }
     next.verseCounts = gj('lectio.vc', {});
     this.setState(next, () => { this.applyTheme(theme); this.ensureVerseCount(); });
 
@@ -225,14 +236,18 @@
     if (last < text.length) out.push({ w: false, text: text.slice(last) });
     return out;
   };
-  buildPassage = (reference, version, verses) => {
+  // verses: [{ num, text, head? }]. `head` (a catechism question) renders as a
+  // non-practiced heading above the verse; only `text` words become practice words.
+  // opts carries non-Scripture metadata (kind/attribution/title) used for layout +
+  // the copyright line; it is absent (→ nulls) for ordinary Bible passages.
+  buildPassage = (reference, version, verses, opts = {}) => {
     let vi = 0; const words = [];
     const vs = verses.map((v, vIdx) => {
       const segs = this.splitSegs((v.text || '').replace(/\s+/g, ' ').trim());
       segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vIdx }); vi++; } });
-      return { num: v.num, segs };
+      return { num: v.num, head: v.head || null, segs };
     });
-    return { reference, version, verses: vs, words };
+    return { reference, version, verses: vs, words, kind: opts.kind || null, attribution: opts.attribution || null, title: opts.title || null };
   };
   parseEsv = (text) => {
     text = (text || '').replace(/\r/g, '');
@@ -373,13 +388,51 @@
   onVEnd = (e) => this.setState({ vEnd: e.target.value });
   setWhole = () => { const count = this.curVerseCount(); this.setState({ vStart: '1', vEnd: count ? String(count) : '' }); };
   onRefKey = (e) => { if (e.key === 'Enter') this.doLoad(); };
-  doLoad = () => { const ref = this.buildRef(); this.persistSel(); this.setState({ refInput: ref, pickerOpen: false }, () => this.runLoad()); };
+  doLoad = () => {
+    if (this.state.corpus === 'creeds') { this.loadCreed(); return; }
+    const ref = this.buildRef(); this.persistSel(); this.setState({ refInput: ref, pickerOpen: false }, () => this.runLoad());
+  };
   setVersion = (v) => {
     const upd = { version: v, error: null, offerKjv: false };
     if (v === 'Greek' && this.bookIndex(this.state.book) < 40) { upd.book = 'Matthew'; upd.chapter = '1'; upd.vStart = '1'; upd.vEnd = ''; }
     this.setState(upd, () => { try { localStorage.setItem('lectio.version', v); } catch (e) {} this.ensureVerseCount(); });
   };
   switchToKjv = () => { this.setState({ version: 'KJV', error: null, offerKjv: false }, () => { try { localStorage.setItem('lectio.version', 'KJV'); } catch (e) {} this.runLoad(); }); };
+
+  // ---------- creeds & catechisms (embedded, no network) ----------
+  creedDoc = (id) => this.CREEDS.find((d) => d.id === (id || this.state.creedId)) || this.CREEDS[0] || null;
+  // Resolve the selected question range for a catechism, clamped to its length.
+  catRange = (d) => {
+    const total = d.items.length;
+    const s = Math.min(Math.max(1, parseInt(this.state.qStart || '1', 10) || 1), total);
+    const e = Math.min(Math.max(s, parseInt(this.state.qEnd || String(s), 10) || s), total);
+    return { s, e, total };
+  };
+  creedRef = (d, r) => d.kind === 'catechism' ? d.short + ' Q' + r.s + (r.e > r.s ? '–' + r.e : '') : d.title;
+  // Reference shown in the picker/header before a creed has been loaded.
+  creedRefPreview = () => { const d = this.creedDoc(); if (!d) return 'Creeds & Catechisms'; return this.creedRef(d, d.kind === 'catechism' ? this.catRange(d) : null); };
+  setCorpus = (c) => this.setState({ corpus: c, error: null, offerKjv: false });
+  onCreed = (e) => this.setState({ creedId: e.target.value, qStart: '1', qEnd: '1' }, this.persistCreedSel);
+  // Keep the range coherent: a start past the current end drags the end along.
+  onQStart = (e) => { const v = e.target.value; const upd = { qStart: v }; if ((parseInt(this.state.qEnd || '1', 10) || 1) < (parseInt(v || '1', 10) || 1)) upd.qEnd = v; this.setState(upd); };
+  onQEnd = (e) => this.setState({ qEnd: e.target.value });
+  persistCreedSel = () => { try { localStorage.setItem('lectio.creedsel', JSON.stringify({ creedId: this.state.creedId, qStart: this.state.qStart, qEnd: this.state.qEnd })); } catch (e) {} };
+  loadCreed = () => {
+    const d = this.creedDoc(); if (!d) return;
+    let reference, verses;
+    if (d.kind === 'catechism') {
+      const r = this.catRange(d);
+      verses = d.items.filter((it) => it.n >= r.s && it.n <= r.e).map((it) => ({ num: it.n, head: it.q, text: it.a }));
+      reference = this.creedRef(d, r);
+    } else {
+      verses = (d.paras || []).map((t) => ({ num: null, text: t }));
+      reference = d.title;
+    }
+    this.persistCreedSel();
+    const passage = this.buildPassage(reference, d.id, verses, { kind: d.kind, attribution: d.attribution, title: d.title });
+    try { localStorage.setItem('lectio.ref', reference); } catch (e) {}
+    this.setState({ pickerOpen: false, loading: false, error: null, offerKjv: false, refInput: reference, passage }, () => this.initModes(passage));
+  };
 
   runLoad = async () => {
     const ref = this.state.refInput.trim(); if (!ref) return;
