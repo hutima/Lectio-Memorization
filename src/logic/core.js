@@ -1,4 +1,14 @@
-class Component extends DCLogic {
+  // ============================================================================
+  // core.js — shared Component members (state, data, lifecycle, theme, text/rng,
+  // caching, ESV usage, passage selector + loading, progress/streak, settings,
+  // dictionary lookups, viewport/keyboard handling, tap protection, style helpers).
+  //
+  // This file is a CLASS-BODY FRAGMENT. It is not valid on its own: build.mjs
+  // concatenates it (with the per-mode files and render.js) inside a single
+  // `class Component extends DCLogic { ... }`. Keep every member an arrow-field or
+  // method so it lands on the instance. See CLAUDE.md → "Repository layout".
+  // ============================================================================
+
   state = {
     theme: 'system', resolvedTheme: 'light',
     version: 'ESV',
@@ -15,10 +25,12 @@ class Component extends DCLogic {
     hideAll: false, revealed: {}, revealAllNow: false,
     hiddenVals: {},
     bank: null, bankFill: {},
-    typeIdx: 0, typeInput: '', typeErrors: 0,
+    bankActive: null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
+    typeIdx: 0, typeInput: '', typeErrors: 0, typeVals: {},
     progress: {}, streak: { count: 0, last: null },
     cacheCount: 0, usageToday: 0,
     updateReady: false,
+    kbInset: 0,
   };
 
   BOOKS = [
@@ -74,12 +86,25 @@ class Component extends DCLogic {
     this._onMM = () => { if (this.state.theme === 'system') this.applyTheme('system'); };
     this._mm.addEventListener('change', this._onMM);
 
+    // Keep the pinned control bar above the iOS soft keyboard: the visual viewport
+    // shrinks when the keyboard opens, and we translate the bar up by that inset.
+    if (window.visualViewport) {
+      this._vv = window.visualViewport;
+      this._onVV = () => {
+        const inset = Math.max(0, window.innerHeight - this._vv.height - this._vv.offsetTop);
+        if (Math.abs(inset - this.state.kbInset) > 1) this.setState({ kbInset: inset });
+      };
+      this._vv.addEventListener('resize', this._onVV);
+      this._vv.addEventListener('scroll', this._onVV);
+    }
+
     this.registerServiceWorker();
     this.maybeRemind();
   }
   componentWillUnmount() {
     if (this._mm) this._mm.removeEventListener('change', this._onMM);
     if (this._onVisible) document.removeEventListener('visibilitychange', this._onVisible);
+    if (this._vv && this._onVV) { this._vv.removeEventListener('resize', this._onVV); this._vv.removeEventListener('scroll', this._onVV); }
   }
 
   // ---------- app updates (service worker) ----------
@@ -126,22 +151,45 @@ class Component extends DCLogic {
   cycleTheme = () => { const o = ['system', 'light', 'dark']; const n = o[(o.indexOf(this.state.theme) + 1) % 3]; this.setState({ theme: n }, () => this.applyTheme(n)); };
   setTheme = (t) => this.setState({ theme: t }, () => this.applyTheme(t));
 
+  // ---------- tap / scroll helpers ----------
+  // iOS fires a synthetic click ~300ms after a touch; a "ghost tap" can double-fire
+  // a reveal/placement. tapGuard ignores a repeat of the SAME logical action within
+  // a short window, while still allowing fast taps on different targets. Pair it with
+  // touch-action:manipulation on tap targets so the browser drops the 300ms delay.
+  tapGuard = (key, fn) => (...a) => {
+    const now = Date.now(); const t = this._taps || (this._taps = {});
+    if (now - (t[key] || 0) < 320) return;
+    t[key] = now; return fn(...a);
+  };
+  // Scroll the currently active word/blank (marked data-active="1") into view so
+  // typing/word-bank progress stays visible above the pinned bar and keyboard.
+  scrollActive = () => {
+    try { requestAnimationFrame(() => { const el = document.querySelector('[data-active="1"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }); } catch (e) {}
+  };
+
+  // ---------- dictionary (Datamuse) ----------
+  // Used to build word-bank distractors: similar-meaning words, biased to the same
+  // part of speech. Free, no key. Falls back to passage words when offline.
+  fetchJson = async (url) => { try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); } catch (e) { return null; } };
+  posOf = (tags) => { if (!tags) return null; for (const t of tags) if (t === 'n' || t === 'v' || t === 'adj' || t === 'adv') return t; return null; };
+  matchCase = (sample, word) => /^[A-Z]/.test(sample || '') ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+
   // ---------- text utils ----------
-  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u03c2/g, '\u03c3').replace(/[\u2018\u2019]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
+  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
   stripHtml = (s) => (s || '').replace(/<S>.*?<\/S>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   bookIndex = (name) => this.BOOKS.findIndex((b) => b.name === name) + 1;
   splitSegs = (text) => {
     text = (text || '').normalize('NFC');
-    const out = []; const re = /[\p{L}\p{N}][\p{L}\p{N}\p{M}]*(?:['\u2019\-][\p{L}\p{N}\p{M}]*)*/gu; let last = 0, m;
+    const out = []; const re = /[\p{L}\p{N}][\p{L}\p{N}\p{M}]*(?:['’\-][\p{L}\p{N}\p{M}]*)*/gu; let last = 0, m;
     while ((m = re.exec(text))) { if (m.index > last) out.push({ w: false, text: text.slice(last, m.index) }); out.push({ w: true, text: m[0] }); last = m.index + m[0].length; }
     if (last < text.length) out.push({ w: false, text: text.slice(last) });
     return out;
   };
   buildPassage = (reference, version, verses) => {
     let vi = 0; const words = [];
-    const vs = verses.map((v) => {
+    const vs = verses.map((v, vIdx) => {
       const segs = this.splitSegs((v.text || '').replace(/\s+/g, ' ').trim());
-      segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text }); vi++; } });
+      segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vIdx }); vi++; } });
       return { num: v.num, segs };
     });
     return { reference, version, verses: vs, words };
@@ -177,12 +225,32 @@ class Component extends DCLogic {
     const seed = this.hash(passage.reference + '|' + passage.words.length);
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
-    this.setState({ blankList: blanks, bank, hiddenVals: {}, bankFill: {}, hideAll: false, revealed: {}, revealAllNow: false, typeIdx: 0, typeInput: '', typeErrors: 0 });
+    this.setState({
+      blankList: blanks, bank,
+      hiddenVals: {}, bankFill: {},
+      bankActive: blanks.length ? blanks[0] : null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
+      hideAll: false, revealed: {}, revealAllNow: false,
+      typeIdx: 0, typeInput: '', typeErrors: 0, typeVals: {},
+    }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
+  };
+  // Shared "ease" slider: how many words become blanks (fill + word-bank modes).
+  onBlankPct = (e) => {
+    const pct = parseFloat(e.target.value); const p = this.state.passage; if (!p) { this.setState({ blankPct: pct }); return; }
+    const seed = this.hash(p.reference + '|' + p.words.length);
+    const blanks = this.pickBlanks(p.words, pct, seed); const bank = this.buildBank(p, blanks, seed);
+    this.setState({
+      blankPct: pct, blankList: blanks, bank,
+      hiddenVals: {}, bankFill: {},
+      bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
+      bankActive: blanks.length ? blanks[0] : null,
+    }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
   };
 
   // ---------- caching (ESV <= 500 verses) ----------
   cache = () => { try { return JSON.parse(localStorage.getItem('lectio.cache') || '{}'); } catch (e) { return {}; } };
-  cachedVerseCount = () => Object.values(this.cache()).reduce((n, e) => n + (e.verses ? e.verses.length : 0), 0);
+  // ESV is the only version capped by terms, so the user-facing "verses cached"
+  // count reflects ESV only (see Settings note). Clearing still wipes everything.
+  cachedVerseCount = () => Object.values(this.cache()).filter((e) => e.version === 'ESV').reduce((n, e) => n + (e.verses ? e.verses.length : 0), 0);
   cacheKey = (version, ref) => version + '::' + ref.toLowerCase().replace(/\s+/g, ' ').trim();
   storePassage = (version, ref, reference, verses) => {
     const c = this.cache(); const key = this.cacheKey(version, ref);
@@ -197,6 +265,7 @@ class Component extends DCLogic {
   };
   getCached = (version, ref) => this.cache()[this.cacheKey(version, ref)];
   clearCache = () => {
+    // Clears every cached version — ESV and the public-domain texts alike.
     try { localStorage.removeItem('lectio.cache'); } catch (e) {}
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('clear-cache');
     this.setState({ cacheCount: 0 });
@@ -352,8 +421,8 @@ class Component extends DCLogic {
     }
   };
 
-  // ---------- modes ----------
-  setMode = (m) => this.setState({ mode: m });
+  // ---------- mode navigation ----------
+  setMode = (m) => this.setState({ mode: m }, () => { if (m === 'bank' && !this.allBlank()) this.ensureOptions(); });
   goHome = () => this.setState({ view: 'home' });
   startMode = (m) => { const p = this.state.passage; this.setState({ mode: m, view: 'practice' }, () => { if (p) this.initModes(p); }); };
   startHide = () => this.startMode('hide');
@@ -365,68 +434,10 @@ class Component extends DCLogic {
     const learned = Object.values(this.state.progress).filter((p) => p.learned).length;
     const parts = [s > 0 ? s + '-day streak' : 'Start your streak today'];
     if (learned > 0) parts.push(learned + (learned === 1 ? ' passage learned' : ' passages learned'));
-    return parts.join('  \u00b7  ');
+    return parts.join('  ·  ');
   };
   resetMode = () => { const p = this.state.passage; if (p) this.initModes(p); };
   toggleHints = () => this.setState({ showHints: !this.state.showHints });
-  toggleHideAll = () => this.setState({ hideAll: !this.state.hideAll, revealed: {} });
-  revealWord = (vi) => this.setState({ revealed: { ...this.state.revealed, [vi]: true } });
-  revealAll = () => { this.setState({ revealAllNow: true, hideAll: false, revealed: {} }); this.markPracticed(); };
-  focusNextBlank = (vi) => {
-    const blanks = this.state.blankList || []; const i = blanks.indexOf(vi);
-    for (let j = i + 1; j < blanks.length; j++) { const el = document.querySelector('[data-blank="' + blanks[j] + '"]'); if (el) { el.focus(); if (el.select) el.select(); return; } }
-  };
-
-  onBlankPct = (e) => {
-    const pct = parseFloat(e.target.value); const p = this.state.passage; if (!p) { this.setState({ blankPct: pct }); return; }
-    const seed = this.hash(p.reference + '|' + p.words.length);
-    const blanks = this.pickBlanks(p.words, pct, seed); const bank = this.buildBank(p, blanks, seed);
-    this.setState({ blankPct: pct, blankList: blanks, bank, hiddenVals: {}, bankFill: {} });
-  };
-  onBlankChange = (vi, val) => {
-    const p = this.state.passage; const cur = p ? p.words[vi].text : '';
-    const advance = /\s$/.test(val);
-    const raw = val.replace(/\s+$/, '');
-    const stored = cur && this.norm(raw) === this.norm(cur) ? cur : raw;
-    this.setState({ hiddenVals: { ...this.state.hiddenVals, [vi]: stored } }, () => { if (advance) this.focusNextBlank(vi); this.checkHiddenDone(); });
-  };
-  checkHiddenDone = () => {
-    const blanks = this.state.blankList; const p = this.state.passage; if (!p) return;
-    if (!blanks.every((vi) => (this.state.hiddenVals[vi] || '').trim().length > 0)) return;
-    const correct = blanks.filter((vi) => this.norm(this.state.hiddenVals[vi]) === this.norm(p.words[vi].text)).length;
-    this.recordResult(correct / blanks.length);
-  };
-
-  placeBank = (id) => {
-    const blanks = this.state.blankList; const fill = { ...this.state.bankFill };
-    const slot = blanks.find((vi) => fill[vi] == null); if (slot == null) return;
-    fill[slot] = id; this.setState({ bankFill: fill }, () => this.checkBankDone());
-  };
-  unplace = (vi) => { const fill = { ...this.state.bankFill }; delete fill[vi]; this.setState({ bankFill: fill }); };
-  checkBankDone = () => {
-    const blanks = this.state.blankList; const p = this.state.passage; if (!p || !this.state.bank) return;
-    if (!blanks.every((vi) => this.state.bankFill[vi] != null)) return;
-    const correct = blanks.filter((vi) => this.norm(this.state.bank.items[this.state.bankFill[vi]].text) === this.norm(p.words[vi].text)).length;
-    this.recordResult(correct / blanks.length);
-  };
-
-  currentWord = () => { const p = this.state.passage; return p && this.state.typeIdx < p.words.length ? p.words[this.state.typeIdx].text : null; };
-  onTypeChange = (e) => {
-    const val = e.target.value; const cur = this.currentWord();
-    if (!cur) { this.setState({ typeInput: '' }); return; }
-    if (/\s$/.test(val)) { this.commitType(val.trim()); return; }
-    if (this.norm(val) === this.norm(cur) && this.norm(val).length >= this.norm(cur).length) { this.commitType(val); return; }
-    this.setState({ typeInput: val });
-  };
-  onTypeKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); this.commitType(this.state.typeInput.trim()); } };
-  commitType = (val) => {
-    const cur = this.currentWord(); if (cur == null) return;
-    if (this.norm(val) === this.norm(cur)) {
-      const ni = this.state.typeIdx + 1;
-      this.setState({ typeIdx: ni, typeInput: '' }, () => { if (ni >= this.state.passage.words.length) this.finishType(); });
-    } else { this.setState({ typeErrors: this.state.typeErrors + 1, typeInput: '' }); }
-  };
-  finishType = () => { const total = this.state.passage.words.length; this.recordResult(total / (total + this.state.typeErrors)); };
 
   // ---------- progress / streak ----------
   passageKey = () => { const p = this.state.passage; return p ? p.version + ' · ' + p.reference : ''; };
@@ -478,170 +489,3 @@ class Component extends DCLogic {
   seg = (active) => ({ padding: '7px 14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: active ? 'var(--accent)' : 'transparent', color: active ? '#fbf8f1' : 'var(--muted)' });
   tab = (active) => ({ padding: '9px 15px', borderRadius: '10px', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line)'), cursor: 'pointer', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', background: active ? 'var(--accent-soft)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--text)' });
   toggleBtn = (active) => ({ padding: '9px 14px', borderRadius: '10px', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line)'), background: active ? 'var(--accent-soft)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--muted)', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' });
-
-  // ---------- practice render ----------
-  sizeMap = { Compact: { fs: 'clamp(17px,2vw,22px)', lh: 1.85 }, Comfortable: { fs: 'clamp(19px,2.4vw,27px)', lh: 1.95 }, Large: { fs: 'clamp(22px,3vw,33px)', lh: 2.0 } };
-  renderWord = (s, key) => {
-    const h = React.createElement; if (!s.w) return h('span', { key }, s.text);
-    const vi = s.vi, text = s.text, mode = this.state.mode;
-    if (this.state.revealAllNow) return h('span', { key, style: { color: 'var(--accent)' } }, text);
-    if (mode === 'hide') {
-      if (!this.state.hideAll) return h('span', { key }, text);
-      if (this.state.revealed[vi]) return h('span', { key, style: { color: 'var(--accent)' } }, text);
-      return h('span', { key, onClick: () => this.revealWord(vi), title: 'tap to peek', style: { cursor: 'pointer', background: 'var(--accent-soft)', color: 'transparent', borderRadius: '4px', padding: '0 2px', boxShadow: 'inset 0 -1px 0 var(--line)' } }, text);
-    }
-    if (mode === 'hidden') {
-      if (!this._blankSet.has(vi)) return h('span', { key }, text);
-      const val = this.state.hiddenVals[vi] || ''; const ok = this.norm(val) === this.norm(text); const filled = val.length > 0;
-      const col = !filled ? 'var(--muted)' : ok ? 'var(--good)' : 'var(--bad)';
-      return h('input', { key, 'data-blank': vi, value: val, onChange: (e) => this.onBlankChange(vi, e.target.value), placeholder: this.state.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', style: { font: 'inherit', fontFamily: "'Gentium Book Plus',serif", width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px' } });
-    }
-    if (mode === 'bank') {
-      if (!this._blankSet.has(vi)) return h('span', { key }, text);
-      const pid = this.state.bankFill[vi];
-      if (pid == null) return h('span', { key, style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.8) + 'em', borderBottom: '2px dashed var(--muted)', color: 'transparent' } }, '\u00a0');
-      const it = this.state.bank.items[pid]; const ok = this.norm(it.text) === this.norm(text);
-      return h('span', { key, onClick: () => this.unplace(vi), title: 'tap to remove', style: { cursor: 'pointer', color: ok ? 'var(--good)' : 'var(--bad)', borderBottom: '2px solid ' + (ok ? 'var(--good)' : 'var(--bad)'), padding: '0 2px' } }, it.text);
-    }
-    if (mode === 'type') {
-      const ti = this.state.typeIdx;
-      if (vi < ti) return h('span', { key, style: { color: 'var(--accent)' } }, text);
-      if (vi === ti) return h('span', { key, style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.6) + 'em', background: 'var(--accent-soft)', borderRadius: '4px', boxShadow: 'inset 0 -2px 0 var(--accent)', color: this.state.showHints ? 'var(--muted)' : 'transparent', textAlign: 'center' } }, this.state.showHints ? text[0] : '\u00a0');
-      return h('span', { key, style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.6) + 'em', borderBottom: '1px dotted var(--muted)', color: 'transparent' } }, '\u00a0');
-    }
-    return h('span', { key }, text);
-  };
-  renderPractice = () => {
-    const h = React.createElement; const p = this.state.passage;
-    if (!p) return h('div', { style: { color: 'var(--muted)' } }, 'Choose a passage to begin.');
-    const sz = this.sizeMap[this.state.scriptureSize] || this.sizeMap.Comfortable;
-    const out = [];
-    p.verses.forEach((v, vi) => {
-      if (vi > 0) out.push(h('span', { key: 'sp' + vi }, ' '));
-      if (this.state.showVerseNums && v.num != null) out.push(h('sup', { key: 'vn' + vi, style: { fontSize: '0.6em', color: 'var(--muted)', fontWeight: 700, marginRight: '3px', fontFamily: "'Noto Sans',sans-serif" } }, v.num));
-      v.segs.forEach((s, si) => out.push(this.renderWord(s, vi + '_' + si)));
-    });
-    return h('div', { style: { fontFamily: "'Gentium Book Plus','Georgia',serif", fontSize: sz.fs, lineHeight: sz.lh, color: 'var(--text)', letterSpacing: '.1px' } }, out);
-  };
-
-  renderVals() {
-    const st = this.state; const p = st.passage;
-    this._blankSet = new Set(st.blankList || []);
-    const meta = this.bookMeta(st.book); const single = meta.chapters === 1;
-    const count = this.curVerseCount(); const whole = this.isWholeSel();
-
-    const ghostBtn = { padding: '9px 15px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
-    const primaryBtn = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fbf8f1', fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
-    const selectStyle = { padding: '10px 12px', border: '1px solid var(--line)', borderRadius: '10px', background: 'var(--surface)', color: 'var(--text)', fontSize: '15px', outline: 'none', flex: 1, minWidth: '150px' };
-
-    // mode-specific fill status
-    let fillStatus = '';
-    if (p && (st.mode === 'hidden' || st.mode === 'bank')) {
-      const total = st.blankList.length;
-      const filled = st.mode === 'hidden'
-        ? st.blankList.filter((vi) => (st.hiddenVals[vi] || '').trim().length > 0).length
-        : st.blankList.filter((vi) => st.bankFill[vi] != null).length;
-      if (filled < total) fillStatus = filled + ' / ' + total + ' filled';
-      else {
-        const correct = st.mode === 'hidden'
-          ? st.blankList.filter((vi) => this.norm(st.hiddenVals[vi]) === this.norm(p.words[vi].text)).length
-          : st.blankList.filter((vi) => st.bank && this.norm(st.bank.items[st.bankFill[vi]].text) === this.norm(p.words[vi].text)).length;
-        fillStatus = correct + ' / ' + total + ' correct';
-      }
-    }
-
-    // bank tray (unused items)
-    let bankItems = [];
-    if (p && st.mode === 'bank' && st.bank) {
-      const used = new Set(Object.values(st.bankFill).filter((x) => x != null));
-      bankItems = st.bank.order.filter((id) => !used.has(id)).map((id) => ({ text: st.bank.items[id].text, onClick: () => this.placeBank(id) }));
-    }
-
-    // type progress / hint
-    const cur = this.currentWord();
-    const typeHint = !p ? '' : cur ? (st.showHints ? 'starts with \u201c' + cur[0] + '\u201d' : 'type the next word') : 'Finished \u2014 well done.';
-    const typeProgress = p ? (Math.min(st.typeIdx, p.words.length) + ' / ' + p.words.length + ' words' + (st.typeErrors ? ' \u00b7 ' + st.typeErrors + ' slips' : '')) : '';
-
-    // streak / best / learned
-    const today = new Date().toISOString().slice(0, 10);
-    const practicedToday = st.streak.last === today;
-    const key = this.passageKey(); const prg = st.progress[key] || { best: 0, learned: false, attempts: 0 };
-    const bestLabel = prg.attempts ? 'Best ' + Math.round(prg.best * 100) + '%' + (prg.attempts ? ' \u00b7 ' + prg.attempts + ' tries' : '') : 'Not practiced yet';
-
-    const modeHints = { hide: 'Recite from memory; peek when stuck.', hidden: 'Fill in the missing words.', bank: 'Rebuild it from the word bank.', type: 'Type it one word at a time.' };
-
-    return {
-      // chrome
-      chromeBtn: { padding: '6px 11px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer' },
-      themeLabel: st.theme.charAt(0).toUpperCase() + st.theme.slice(1),
-      cycleTheme: this.cycleTheme, openSettings: this.openSettings,
-      ghostBtn, primaryBtn,
-
-      // views
-      isHome: st.view === 'home', isPractice: st.view === 'practice', goHome: this.goHome,
-      startHide: this.startHide, startFill: this.startFill, startBank: this.startBank, startType: this.startType,
-      currentModeName: ({ hide: 'Hide & reveal', hidden: 'Fill blanks', bank: 'Word bank', type: 'Type it' })[st.mode],
-      homeSummary: this.homeSummary(),
-
-      // picker
-      pickerOpen: st.pickerOpen, togglePicker: this.togglePicker,
-      pickerChevron: st.pickerOpen ? '\u25be' : '\u25b8',
-      versions: ['ESV', 'KJV', 'Greek'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
-      books: st.version === 'Greek' ? this.BOOKS.filter((b, i) => i >= 39) : this.BOOKS, book: st.book, onBook: this.onBook, selectStyle,
-      chapterSelectStyle: { ...selectStyle, flex: 'none', minWidth: '92px' },
-      showChapter: !single,
-      chapter: st.chapter, onChapter: this.onChapter,
-      chapterList: Array.from({ length: meta.chapters }, (_, i) => String(i + 1)),
-      versesKnown: count != null, versesUnknown: count == null,
-      verseOptions: count != null ? Array.from({ length: count }, (_, i) => String(i + 1)) : [],
-      vStart: st.vStart, vEndValue: st.vEnd || (count != null ? String(count) : ''),
-      onVStart: this.onVStart, onVEnd: this.onVEnd, onRefKey: this.onRefKey,
-      verseSelectStyle: { padding: '8px 9px', border: '1px solid var(--line)', borderRadius: '8px', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', outline: 'none' },
-      setWhole: this.setWhole, wholeBtn: this.toggleBtn(whole), wholeLabel: single ? 'Whole book' : 'Whole chapter',
-      load: this.doLoad, loadBtn: primaryBtn, loadLabel: st.loading ? 'Loading\u2026' : 'Load passage',
-
-      // errors
-      hasError: !!st.error, error: st.error, offerKjv: st.offerKjv, switchToKjv: this.switchToKjv,
-
-      // tabs
-      modeTabs: [['hide', 'Hide & reveal'], ['hidden', 'Fill blanks'], ['bank', 'Word bank'], ['type', 'Type it']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.tab(id === st.mode) })),
-
-      // passage
-      hasPassage: !!p, reference: p ? p.reference : this.buildRef(), versionLabel: p ? p.version : st.version,
-      modeHint: modeHints[st.mode] || '',
-      practice: this.renderPractice(),
-
-      // mode toolbars
-      isHide: st.mode === 'hide', toggleHideAll: this.toggleHideAll, hideToggleLabel: st.hideAll ? 'Show passage' : 'Hide passage', revealAll: this.revealAll,
-      isHidden: st.mode === 'hidden', blankPct: st.blankPct, onBlankPct: this.onBlankPct,
-      isBank: st.mode === 'bank', bankItems, bankEmpty: bankItems.length === 0,
-      bankBtn: { padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: "'Gentium Book Plus',serif", fontSize: '17px', cursor: 'pointer' },
-      isType: st.mode === 'type', typeInput: st.typeInput, onTypeChange: this.onTypeChange, onTypeKey: this.onTypeKey, typeHint, typeProgress,
-      toggleHints: this.toggleHints, hintsBtn: this.toggleBtn(st.showHints), hintsLabel: st.showHints ? 'Hints on' : 'Hints off',
-      resetMode: this.resetMode, fillStatus,
-
-      // status
-      streakDot: practicedToday ? 'var(--accent)' : 'var(--line)',
-      streakLabel: (st.streak.count || 0) + (st.streak.count === 1 ? '-day streak' : '-day streak'),
-      bestLabel,
-      toggleLearned: this.toggleLearned, learnedBtn: this.toggleBtn(prg.learned), learnedLabel: prg.learned ? '\u2713 Learned' : 'Mark as learned',
-
-      // attribution
-      isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', openCopyright: this.openCopyright,
-
-      // settings
-      settingsOpen: st.settingsOpen, closeSettings: this.closeSettings, stop: this.stop,
-      esvToken: st.esvToken, onTokenChange: this.onTokenChange, tokenState: st.esvToken ? 'Token saved.' : 'No token yet.',
-      themeOpts: ['system', 'light', 'dark'].map((t) => ({ label: t.charAt(0).toUpperCase() + t.slice(1), onClick: () => this.setTheme(t), style: this.seg(t === st.theme) })),
-      toggleReminder: this.toggleReminder, reminderBtn: this.toggleBtn(st.reminderOn), reminderLabel: st.reminderOn ? 'On' : 'Off',
-      cacheStatus: st.cacheCount + (st.cacheCount === 1 ? ' verse cached.' : ' verses cached.'),
-      clearCache: this.clearCache,
-      usageVisible: st.usageToday > 0, usageToday: st.usageToday.toLocaleString(),
-
-      copyrightOpen: st.copyrightOpen, closeCopyright: this.closeCopyright,
-
-      // app update prompt
-      updateReady: st.updateReady, applyUpdate: this.applyUpdate, dismissUpdate: this.dismissUpdate,
-    };
-  }
-}

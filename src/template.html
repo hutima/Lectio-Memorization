@@ -98,7 +98,7 @@
               <span style="font-weight:700;font-size:16px;flex:1;">Word bank</span>
               <span style="font-size:11px;color:var(--muted);letter-spacing:.3px;">Medium</span>
             </div>
-            <span style="font-size:13px;color:var(--muted);line-height:1.5;">The words are jumbled below. Tap them in order to rebuild the text.</span>
+            <span style="font-size:13px;color:var(--muted);line-height:1.5;">Pick the missing word from a short list — or rebuild it all from a tray.</span>
           </button>
           <button onClick="{{ startType }}" style="display:flex;flex-direction:column;gap:9px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;color:var(--text);transition:border-color .15s,transform .15s;" style-hover="border-color:var(--accent);transform:translateY(-2px);">
             <div style="display:flex;align-items:center;gap:10px;width:100%;">
@@ -114,7 +114,7 @@
     </sc-if>
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
-    <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="display:flex;flex-direction:column;gap:16px;padding-bottom:calc(230px + env(safe-area-inset-bottom));">
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
     </div>
@@ -127,54 +127,18 @@
       </div>
     </sc-if>
 
+    <sc-if value="{{ showEase }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Fewer blanks</span>
+        <input type="range" min="0.1" max="1" step="0.05" value="{{ blankPct }}" onChange="{{ onBlankPct }}" style="flex:1;min-width:120px;" />
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">All words</span>
+        <span style="font-size:12px;color:var(--muted);font-weight:600;min-width:88px;text-align:right;">{{ easeLabel }}</span>
+      </div>
+    </sc-if>
+
     <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3.4vw,32px);min-height:200px;">
       {{ practice }}
     </div>
-
-    <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
-        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
-        <span style="flex:1;"></span>
-        <span style="font-size:13px;color:var(--muted);">Tap a blank to peek.</span>
-      </div>
-    </sc-if>
-
-    <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
-        <label style="font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:8px;">Difficulty<input type="range" min="0.1" max="0.6" step="0.05" value="{{ blankPct }}" onChange="{{ onBlankPct }}" style="width:120px;" /></label>
-        <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-        <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
-        <span style="flex:1;"></span>
-        <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
-      </div>
-    </sc-if>
-
-    <sc-if value="{{ isBank }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:12px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;">
-          <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankBtn }}">{{ b.text }}</button></sc-for>
-          <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-          <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
-          <span style="flex:1;"></span>
-          <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
-        </div>
-      </div>
-    </sc-if>
-
-    <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" spellCheck="false" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
-        <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
-        <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
-        <span style="font-size:13px;color:var(--muted);width:100%;">{{ typeProgress }}</span>
-      </div>
-    </sc-if>
 
     <sc-if value="{{ hasPassage }}" hint-placeholder-val="{{ true }}">
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line);">
@@ -202,6 +166,81 @@
     </sc-if>
 
   </main>
+
+  <sc-if value="{{ showFooter }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ footerStyle }}">
+      <div style="{{ footerInner }}">
+
+        <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
+            <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            <span style="flex:1;"></span>
+            <span style="font-size:13px;color:var(--muted);">Tap a word to peek.</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+            <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+            <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            <span style="flex:1;"></span>
+            <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isBank }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ bankMc }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button onClick="{{ bankPrev }}" style="{{ bankPrevBtn }}">‹ Prev</button>
+                <button onClick="{{ bankNext }}" style="{{ bankNextBtn }}">Next ›</button>
+                <span style="font-size:13px;color:var(--muted);">{{ bankActiveLabel }}</span>
+                <span style="flex:1;"></span>
+                <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;align-items:center;">
+                <sc-for list="{{ bankOptions }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.text }}</button></sc-for>
+                <sc-if value="{{ optionsLoading }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);">Finding similar words…</span></sc-if>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+                <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ bankTray }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;max-height:34vh;overflow:auto;">
+                <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankTrayBtn }}">{{ b.text }}</button></sc-for>
+                <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+                <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+                <span style="flex:1;"></span>
+                <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
+              </div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" spellCheck="false" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
+              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
+              <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+              <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            </div>
+            <span style="font-size:13px;color:var(--muted);">{{ typeProgress }} · Backspace returns to the last word.</span>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
 
   <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeSettings }}" style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:40;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto;">
@@ -234,7 +273,7 @@
 
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div style="font-weight:600;font-size:14px;">Cached Scripture</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.5;">{{ cacheStatus }} ESV terms allow caching up to 500 verses; clearing also refreshes to the latest text next time.</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">{{ cacheStatus }} The count is ESV only — ESV terms allow caching up to 500 verses. King James and Greek (public domain) are also cached, but uncounted. Clearing removes <em>all</em> cached versions and refreshes to the latest text next time.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onClick="{{ clearCache }}" style="{{ ghostBtn }}">Clear cached Scripture</button>
             <button onClick="{{ openCopyright }}" style="{{ ghostBtn }}">ESV copyright</button>

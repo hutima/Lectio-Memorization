@@ -137,7 +137,7 @@ input[type=range]{accent-color:var(--accent);}
               <span style="font-weight:700;font-size:16px;flex:1;">Word bank</span>
               <span style="font-size:11px;color:var(--muted);letter-spacing:.3px;">Medium</span>
             </div>
-            <span style="font-size:13px;color:var(--muted);line-height:1.5;">The words are jumbled below. Tap them in order to rebuild the text.</span>
+            <span style="font-size:13px;color:var(--muted);line-height:1.5;">Pick the missing word from a short list — or rebuild it all from a tray.</span>
           </button>
           <button onClick="{{ startType }}" style="display:flex;flex-direction:column;gap:9px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;color:var(--text);transition:border-color .15s,transform .15s;" style-hover="border-color:var(--accent);transform:translateY(-2px);">
             <div style="display:flex;align-items:center;gap:10px;width:100%;">
@@ -153,7 +153,7 @@ input[type=range]{accent-color:var(--accent);}
     </sc-if>
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
-    <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="display:flex;flex-direction:column;gap:16px;padding-bottom:calc(230px + env(safe-area-inset-bottom));">
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
     </div>
@@ -166,54 +166,18 @@ input[type=range]{accent-color:var(--accent);}
       </div>
     </sc-if>
 
+    <sc-if value="{{ showEase }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;">
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Fewer blanks</span>
+        <input type="range" min="0.1" max="1" step="0.05" value="{{ blankPct }}" onChange="{{ onBlankPct }}" style="flex:1;min-width:120px;" />
+        <span style="font-size:12px;color:var(--muted);white-space:nowrap;">All words</span>
+        <span style="font-size:12px;color:var(--muted);font-weight:600;min-width:88px;text-align:right;">{{ easeLabel }}</span>
+      </div>
+    </sc-if>
+
     <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3.4vw,32px);min-height:200px;">
       {{ practice }}
     </div>
-
-    <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-        <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
-        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
-        <span style="flex:1;"></span>
-        <span style="font-size:13px;color:var(--muted);">Tap a blank to peek.</span>
-      </div>
-    </sc-if>
-
-    <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
-        <label style="font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:8px;">Difficulty<input type="range" min="0.1" max="0.6" step="0.05" value="{{ blankPct }}" onChange="{{ onBlankPct }}" style="width:120px;" /></label>
-        <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-        <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
-        <span style="flex:1;"></span>
-        <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
-      </div>
-    </sc-if>
-
-    <sc-if value="{{ isBank }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;flex-direction:column;gap:12px;">
-        <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:12px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;">
-          <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankBtn }}">{{ b.text }}</button></sc-for>
-          <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
-        </div>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-          <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-          <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
-          <span style="flex:1;"></span>
-          <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
-        </div>
-      </div>
-    </sc-if>
-
-    <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" spellCheck="false" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
-        <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
-        <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
-        <span style="font-size:13px;color:var(--muted);width:100%;">{{ typeProgress }}</span>
-      </div>
-    </sc-if>
 
     <sc-if value="{{ hasPassage }}" hint-placeholder-val="{{ true }}">
       <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line);">
@@ -241,6 +205,81 @@ input[type=range]{accent-color:var(--accent);}
     </sc-if>
 
   </main>
+
+  <sc-if value="{{ showFooter }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ footerStyle }}">
+      <div style="{{ footerInner }}">
+
+        <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
+            <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            <span style="flex:1;"></span>
+            <span style="font-size:13px;color:var(--muted);">Tap a word to peek.</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+            <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+            <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            <span style="flex:1;"></span>
+            <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isBank }}" hint-placeholder-val="{{ false }}">
+          <sc-if value="{{ bankMc }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button onClick="{{ bankPrev }}" style="{{ bankPrevBtn }}">‹ Prev</button>
+                <button onClick="{{ bankNext }}" style="{{ bankNextBtn }}">Next ›</button>
+                <span style="font-size:13px;color:var(--muted);">{{ bankActiveLabel }}</span>
+                <span style="flex:1;"></span>
+                <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
+              </div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;align-items:center;">
+                <sc-for list="{{ bankOptions }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.text }}</button></sc-for>
+                <sc-if value="{{ optionsLoading }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);">Finding similar words…</span></sc-if>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+                <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+              </div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ bankTray }}" hint-placeholder-val="{{ false }}">
+            <div style="display:flex;flex-direction:column;gap:10px;">
+              <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;max-height:34vh;overflow:auto;">
+                <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankTrayBtn }}">{{ b.text }}</button></sc-for>
+                <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
+              </div>
+              <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+                <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+                <span style="flex:1;"></span>
+                <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
+              </div>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <input data-typebox="1" value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" spellCheck="false" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
+              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
+              <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+              <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+            </div>
+            <span style="font-size:13px;color:var(--muted);">{{ typeProgress }} · Backspace returns to the last word.</span>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
 
   <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeSettings }}" style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:40;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto;">
@@ -273,7 +312,7 @@ input[type=range]{accent-color:var(--accent);}
 
         <div style="display:flex;flex-direction:column;gap:8px;">
           <div style="font-weight:600;font-size:14px;">Cached Scripture</div>
-          <div style="font-size:12px;color:var(--muted);line-height:1.5;">{{ cacheStatus }} ESV terms allow caching up to 500 verses; clearing also refreshes to the latest text next time.</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">{{ cacheStatus }} The count is ESV only — ESV terms allow caching up to 500 verses. King James and Greek (public domain) are also cached, but uncounted. Clearing removes <em>all</em> cached versions and refreshes to the latest text next time.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onClick="{{ clearCache }}" style="{{ ghostBtn }}">Clear cached Scripture</button>
             <button onClick="{{ openCopyright }}" style="{{ ghostBtn }}">ESV copyright</button>
@@ -328,6 +367,17 @@ input[type=range]{accent-color:var(--accent);}
   &quot;hintsDefault&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot; }
 }">
 class Component extends DCLogic {
+  // ============================================================================
+  // core.js — shared Component members (state, data, lifecycle, theme, text/rng,
+  // caching, ESV usage, passage selector + loading, progress/streak, settings,
+  // dictionary lookups, viewport/keyboard handling, tap protection, style helpers).
+  //
+  // This file is a CLASS-BODY FRAGMENT. It is not valid on its own: build.mjs
+  // concatenates it (with the per-mode files and render.js) inside a single
+  // `class Component extends DCLogic { ... }`. Keep every member an arrow-field or
+  // method so it lands on the instance. See CLAUDE.md → "Repository layout".
+  // ============================================================================
+
   state = {
     theme: 'system', resolvedTheme: 'light',
     version: 'ESV',
@@ -344,10 +394,12 @@ class Component extends DCLogic {
     hideAll: false, revealed: {}, revealAllNow: false,
     hiddenVals: {},
     bank: null, bankFill: {},
-    typeIdx: 0, typeInput: '', typeErrors: 0,
+    bankActive: null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
+    typeIdx: 0, typeInput: '', typeErrors: 0, typeVals: {},
     progress: {}, streak: { count: 0, last: null },
     cacheCount: 0, usageToday: 0,
     updateReady: false,
+    kbInset: 0,
   };
 
   BOOKS = [
@@ -403,12 +455,25 @@ class Component extends DCLogic {
     this._onMM = () => { if (this.state.theme === 'system') this.applyTheme('system'); };
     this._mm.addEventListener('change', this._onMM);
 
+    // Keep the pinned control bar above the iOS soft keyboard: the visual viewport
+    // shrinks when the keyboard opens, and we translate the bar up by that inset.
+    if (window.visualViewport) {
+      this._vv = window.visualViewport;
+      this._onVV = () => {
+        const inset = Math.max(0, window.innerHeight - this._vv.height - this._vv.offsetTop);
+        if (Math.abs(inset - this.state.kbInset) > 1) this.setState({ kbInset: inset });
+      };
+      this._vv.addEventListener('resize', this._onVV);
+      this._vv.addEventListener('scroll', this._onVV);
+    }
+
     this.registerServiceWorker();
     this.maybeRemind();
   }
   componentWillUnmount() {
     if (this._mm) this._mm.removeEventListener('change', this._onMM);
     if (this._onVisible) document.removeEventListener('visibilitychange', this._onVisible);
+    if (this._vv && this._onVV) { this._vv.removeEventListener('resize', this._onVV); this._vv.removeEventListener('scroll', this._onVV); }
   }
 
   // ---------- app updates (service worker) ----------
@@ -455,22 +520,45 @@ class Component extends DCLogic {
   cycleTheme = () => { const o = ['system', 'light', 'dark']; const n = o[(o.indexOf(this.state.theme) + 1) % 3]; this.setState({ theme: n }, () => this.applyTheme(n)); };
   setTheme = (t) => this.setState({ theme: t }, () => this.applyTheme(t));
 
+  // ---------- tap / scroll helpers ----------
+  // iOS fires a synthetic click ~300ms after a touch; a "ghost tap" can double-fire
+  // a reveal/placement. tapGuard ignores a repeat of the SAME logical action within
+  // a short window, while still allowing fast taps on different targets. Pair it with
+  // touch-action:manipulation on tap targets so the browser drops the 300ms delay.
+  tapGuard = (key, fn) => (...a) => {
+    const now = Date.now(); const t = this._taps || (this._taps = {});
+    if (now - (t[key] || 0) < 320) return;
+    t[key] = now; return fn(...a);
+  };
+  // Scroll the currently active word/blank (marked data-active="1") into view so
+  // typing/word-bank progress stays visible above the pinned bar and keyboard.
+  scrollActive = () => {
+    try { requestAnimationFrame(() => { const el = document.querySelector('[data-active="1"]'); if (el && el.scrollIntoView) el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }); } catch (e) {}
+  };
+
+  // ---------- dictionary (Datamuse) ----------
+  // Used to build word-bank distractors: similar-meaning words, biased to the same
+  // part of speech. Free, no key. Falls back to passage words when offline.
+  fetchJson = async (url) => { try { const r = await fetch(url); if (!r.ok) return null; return await r.json(); } catch (e) { return null; } };
+  posOf = (tags) => { if (!tags) return null; for (const t of tags) if (t === 'n' || t === 'v' || t === 'adj' || t === 'adv') return t; return null; };
+  matchCase = (sample, word) => /^[A-Z]/.test(sample || '') ? word.charAt(0).toUpperCase() + word.slice(1) : word;
+
   // ---------- text utils ----------
-  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\u03c2/g, '\u03c3').replace(/[\u2018\u2019]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
+  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
   stripHtml = (s) => (s || '').replace(/<S>.*?<\/S>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   bookIndex = (name) => this.BOOKS.findIndex((b) => b.name === name) + 1;
   splitSegs = (text) => {
     text = (text || '').normalize('NFC');
-    const out = []; const re = /[\p{L}\p{N}][\p{L}\p{N}\p{M}]*(?:['\u2019\-][\p{L}\p{N}\p{M}]*)*/gu; let last = 0, m;
+    const out = []; const re = /[\p{L}\p{N}][\p{L}\p{N}\p{M}]*(?:['’\-][\p{L}\p{N}\p{M}]*)*/gu; let last = 0, m;
     while ((m = re.exec(text))) { if (m.index > last) out.push({ w: false, text: text.slice(last, m.index) }); out.push({ w: true, text: m[0] }); last = m.index + m[0].length; }
     if (last < text.length) out.push({ w: false, text: text.slice(last) });
     return out;
   };
   buildPassage = (reference, version, verses) => {
     let vi = 0; const words = [];
-    const vs = verses.map((v) => {
+    const vs = verses.map((v, vIdx) => {
       const segs = this.splitSegs((v.text || '').replace(/\s+/g, ' ').trim());
-      segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text }); vi++; } });
+      segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vIdx }); vi++; } });
       return { num: v.num, segs };
     });
     return { reference, version, verses: vs, words };
@@ -506,12 +594,32 @@ class Component extends DCLogic {
     const seed = this.hash(passage.reference + '|' + passage.words.length);
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
-    this.setState({ blankList: blanks, bank, hiddenVals: {}, bankFill: {}, hideAll: false, revealed: {}, revealAllNow: false, typeIdx: 0, typeInput: '', typeErrors: 0 });
+    this.setState({
+      blankList: blanks, bank,
+      hiddenVals: {}, bankFill: {},
+      bankActive: blanks.length ? blanks[0] : null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
+      hideAll: false, revealed: {}, revealAllNow: false,
+      typeIdx: 0, typeInput: '', typeErrors: 0, typeVals: {},
+    }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
+  };
+  // Shared "ease" slider: how many words become blanks (fill + word-bank modes).
+  onBlankPct = (e) => {
+    const pct = parseFloat(e.target.value); const p = this.state.passage; if (!p) { this.setState({ blankPct: pct }); return; }
+    const seed = this.hash(p.reference + '|' + p.words.length);
+    const blanks = this.pickBlanks(p.words, pct, seed); const bank = this.buildBank(p, blanks, seed);
+    this.setState({
+      blankPct: pct, blankList: blanks, bank,
+      hiddenVals: {}, bankFill: {},
+      bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
+      bankActive: blanks.length ? blanks[0] : null,
+    }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
   };
 
   // ---------- caching (ESV <= 500 verses) ----------
   cache = () => { try { return JSON.parse(localStorage.getItem('lectio.cache') || '{}'); } catch (e) { return {}; } };
-  cachedVerseCount = () => Object.values(this.cache()).reduce((n, e) => n + (e.verses ? e.verses.length : 0), 0);
+  // ESV is the only version capped by terms, so the user-facing "verses cached"
+  // count reflects ESV only (see Settings note). Clearing still wipes everything.
+  cachedVerseCount = () => Object.values(this.cache()).filter((e) => e.version === 'ESV').reduce((n, e) => n + (e.verses ? e.verses.length : 0), 0);
   cacheKey = (version, ref) => version + '::' + ref.toLowerCase().replace(/\s+/g, ' ').trim();
   storePassage = (version, ref, reference, verses) => {
     const c = this.cache(); const key = this.cacheKey(version, ref);
@@ -526,6 +634,7 @@ class Component extends DCLogic {
   };
   getCached = (version, ref) => this.cache()[this.cacheKey(version, ref)];
   clearCache = () => {
+    // Clears every cached version — ESV and the public-domain texts alike.
     try { localStorage.removeItem('lectio.cache'); } catch (e) {}
     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) navigator.serviceWorker.controller.postMessage('clear-cache');
     this.setState({ cacheCount: 0 });
@@ -681,8 +790,8 @@ class Component extends DCLogic {
     }
   };
 
-  // ---------- modes ----------
-  setMode = (m) => this.setState({ mode: m });
+  // ---------- mode navigation ----------
+  setMode = (m) => this.setState({ mode: m }, () => { if (m === 'bank' && !this.allBlank()) this.ensureOptions(); });
   goHome = () => this.setState({ view: 'home' });
   startMode = (m) => { const p = this.state.passage; this.setState({ mode: m, view: 'practice' }, () => { if (p) this.initModes(p); }); };
   startHide = () => this.startMode('hide');
@@ -694,68 +803,10 @@ class Component extends DCLogic {
     const learned = Object.values(this.state.progress).filter((p) => p.learned).length;
     const parts = [s > 0 ? s + '-day streak' : 'Start your streak today'];
     if (learned > 0) parts.push(learned + (learned === 1 ? ' passage learned' : ' passages learned'));
-    return parts.join('  \u00b7  ');
+    return parts.join('  ·  ');
   };
   resetMode = () => { const p = this.state.passage; if (p) this.initModes(p); };
   toggleHints = () => this.setState({ showHints: !this.state.showHints });
-  toggleHideAll = () => this.setState({ hideAll: !this.state.hideAll, revealed: {} });
-  revealWord = (vi) => this.setState({ revealed: { ...this.state.revealed, [vi]: true } });
-  revealAll = () => { this.setState({ revealAllNow: true, hideAll: false, revealed: {} }); this.markPracticed(); };
-  focusNextBlank = (vi) => {
-    const blanks = this.state.blankList || []; const i = blanks.indexOf(vi);
-    for (let j = i + 1; j < blanks.length; j++) { const el = document.querySelector('[data-blank="' + blanks[j] + '"]'); if (el) { el.focus(); if (el.select) el.select(); return; } }
-  };
-
-  onBlankPct = (e) => {
-    const pct = parseFloat(e.target.value); const p = this.state.passage; if (!p) { this.setState({ blankPct: pct }); return; }
-    const seed = this.hash(p.reference + '|' + p.words.length);
-    const blanks = this.pickBlanks(p.words, pct, seed); const bank = this.buildBank(p, blanks, seed);
-    this.setState({ blankPct: pct, blankList: blanks, bank, hiddenVals: {}, bankFill: {} });
-  };
-  onBlankChange = (vi, val) => {
-    const p = this.state.passage; const cur = p ? p.words[vi].text : '';
-    const advance = /\s$/.test(val);
-    const raw = val.replace(/\s+$/, '');
-    const stored = cur && this.norm(raw) === this.norm(cur) ? cur : raw;
-    this.setState({ hiddenVals: { ...this.state.hiddenVals, [vi]: stored } }, () => { if (advance) this.focusNextBlank(vi); this.checkHiddenDone(); });
-  };
-  checkHiddenDone = () => {
-    const blanks = this.state.blankList; const p = this.state.passage; if (!p) return;
-    if (!blanks.every((vi) => (this.state.hiddenVals[vi] || '').trim().length > 0)) return;
-    const correct = blanks.filter((vi) => this.norm(this.state.hiddenVals[vi]) === this.norm(p.words[vi].text)).length;
-    this.recordResult(correct / blanks.length);
-  };
-
-  placeBank = (id) => {
-    const blanks = this.state.blankList; const fill = { ...this.state.bankFill };
-    const slot = blanks.find((vi) => fill[vi] == null); if (slot == null) return;
-    fill[slot] = id; this.setState({ bankFill: fill }, () => this.checkBankDone());
-  };
-  unplace = (vi) => { const fill = { ...this.state.bankFill }; delete fill[vi]; this.setState({ bankFill: fill }); };
-  checkBankDone = () => {
-    const blanks = this.state.blankList; const p = this.state.passage; if (!p || !this.state.bank) return;
-    if (!blanks.every((vi) => this.state.bankFill[vi] != null)) return;
-    const correct = blanks.filter((vi) => this.norm(this.state.bank.items[this.state.bankFill[vi]].text) === this.norm(p.words[vi].text)).length;
-    this.recordResult(correct / blanks.length);
-  };
-
-  currentWord = () => { const p = this.state.passage; return p && this.state.typeIdx < p.words.length ? p.words[this.state.typeIdx].text : null; };
-  onTypeChange = (e) => {
-    const val = e.target.value; const cur = this.currentWord();
-    if (!cur) { this.setState({ typeInput: '' }); return; }
-    if (/\s$/.test(val)) { this.commitType(val.trim()); return; }
-    if (this.norm(val) === this.norm(cur) && this.norm(val).length >= this.norm(cur).length) { this.commitType(val); return; }
-    this.setState({ typeInput: val });
-  };
-  onTypeKey = (e) => { if (e.key === 'Enter') { e.preventDefault(); this.commitType(this.state.typeInput.trim()); } };
-  commitType = (val) => {
-    const cur = this.currentWord(); if (cur == null) return;
-    if (this.norm(val) === this.norm(cur)) {
-      const ni = this.state.typeIdx + 1;
-      this.setState({ typeIdx: ni, typeInput: '' }, () => { if (ni >= this.state.passage.words.length) this.finishType(); });
-    } else { this.setState({ typeErrors: this.state.typeErrors + 1, typeInput: '' }); }
-  };
-  finishType = () => { const total = this.state.passage.words.length; this.recordResult(total / (total + this.state.typeErrors)); };
 
   // ---------- progress / streak ----------
   passageKey = () => { const p = this.state.passage; return p ? p.version + ' · ' + p.reference : ''; };
@@ -808,37 +859,321 @@ class Component extends DCLogic {
   tab = (active) => ({ padding: '9px 15px', borderRadius: '10px', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line)'), cursor: 'pointer', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', background: active ? 'var(--accent-soft)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--text)' });
   toggleBtn = (active) => ({ padding: '9px 14px', borderRadius: '10px', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line)'), background: active ? 'var(--accent-soft)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--muted)', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' });
 
-  // ---------- practice render ----------
+  // ============================================================================
+  // mode-hide.js — "Hide & reveal" practice mode (class-body fragment; see core.js).
+  // Progressively hide every word; tap a hidden word to peek. "Reveal all" ends it.
+  // ============================================================================
+
+  toggleHideAll = () => this.setState({ hideAll: !this.state.hideAll, revealed: {} });
+  revealWord = (vi) => this.setState({ revealed: { ...this.state.revealed, [vi]: true } });
+  revealAll = () => { this.setState({ revealAllNow: true, hideAll: false, revealed: {} }); this.markPracticed(); };
+
+  renderWord_hide = (s, key) => {
+    const h = React.createElement; const vi = s.vi, text = s.text; const st = this.state;
+    if (!st.hideAll) return h('span', { key }, text);
+    if (st.revealed[vi]) return h('span', { key, style: { color: 'var(--accent)' } }, text);
+    return h('span', { key, onClick: this.tapGuard('rev' + vi, () => this.revealWord(vi)), title: 'tap to peek', style: { cursor: 'pointer', touchAction: 'manipulation', background: 'var(--accent-soft)', color: 'transparent', borderRadius: '4px', padding: '0 2px', boxShadow: 'inset 0 -1px 0 var(--line)' } }, text);
+  };
+
+  // Footer control values for hide mode.
+  vals_hide = () => ({
+    isHide: this.state.mode === 'hide',
+    toggleHideAll: this.toggleHideAll,
+    hideToggleLabel: this.state.hideAll ? 'Show passage' : 'Hide passage',
+  });
+
+  // ============================================================================
+  // mode-fill.js — "Fill blanks" practice mode (class-body fragment; see core.js).
+  // Selected words become inline inputs. Tap any blank to edit it (no need to start
+  // at the beginning); a trailing space or an exact match auto-advances to the next.
+  // The number of blanks is driven by the shared ease slider (core.onBlankPct).
+  // ============================================================================
+
+  focusNextBlank = (vi) => {
+    const blanks = this.state.blankList || []; const i = blanks.indexOf(vi);
+    for (let j = i + 1; j < blanks.length; j++) { const el = document.querySelector('[data-blank="' + blanks[j] + '"]'); if (el) { el.focus(); if (el.select) el.select(); return; } }
+  };
+  onBlankChange = (vi, val) => {
+    const p = this.state.passage; const cur = p ? p.words[vi].text : '';
+    const trailingSpace = /\s$/.test(val);
+    const raw = val.replace(/\s+$/, '');
+    const stored = cur && this.norm(raw) === this.norm(cur) ? cur : raw;
+    // Auto-advance on a trailing space OR as soon as the typed word matches exactly,
+    // so a correct blank turns green and hands focus to the next field.
+    const exact = cur && this.norm(raw) === this.norm(cur);
+    this.setState({ hiddenVals: { ...this.state.hiddenVals, [vi]: stored } }, () => { if (trailingSpace || exact) this.focusNextBlank(vi); this.checkHiddenDone(); });
+  };
+  checkHiddenDone = () => {
+    const blanks = this.state.blankList; const p = this.state.passage; if (!p) return;
+    if (!blanks.every((vi) => (this.state.hiddenVals[vi] || '').trim().length > 0)) return;
+    const correct = blanks.filter((vi) => this.norm(this.state.hiddenVals[vi]) === this.norm(p.words[vi].text)).length;
+    this.recordResult(correct / blanks.length);
+  };
+
+  renderWord_fill = (s, key) => {
+    const h = React.createElement; const vi = s.vi, text = s.text; const st = this.state;
+    const val = st.hiddenVals[vi] || ''; const ok = this.norm(val) === this.norm(text); const filled = val.length > 0;
+    const col = !filled ? 'var(--muted)' : ok ? 'var(--good)' : 'var(--bad)';
+    return h('input', {
+      key, 'data-blank': vi, value: val,
+      onChange: (e) => this.onBlankChange(vi, e.target.value),
+      // Tapping a blank focuses it directly; keep it visible above the keyboard.
+      onFocus: (e) => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} },
+      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off',
+      style: { font: 'inherit', fontFamily: "'Gentium Book Plus',serif", width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px', touchAction: 'manipulation' },
+    });
+  };
+
+  // Footer control values for fill mode.
+  vals_fill = () => {
+    const st = this.state; const p = st.passage;
+    let fillStatus = '';
+    if (p && st.blankList.length) {
+      const total = st.blankList.length;
+      const filled = st.blankList.filter((vi) => (st.hiddenVals[vi] || '').trim().length > 0).length;
+      if (filled < total) fillStatus = filled + ' / ' + total + ' filled';
+      else {
+        const correct = st.blankList.filter((vi) => this.norm(st.hiddenVals[vi]) === this.norm(p.words[vi].text)).length;
+        fillStatus = correct + ' / ' + total + ' correct';
+      }
+    }
+    return { isHidden: st.mode === 'hidden', fillStatus };
+  };
+
+  // ============================================================================
+  // mode-bank.js — "Word bank" practice mode (class-body fragment; see core.js).
+  //
+  // Two sub-modes, chosen by the shared ease slider:
+  //
+  //  • Multiple choice (slider below max): navigate blanks with Prev/Next or by
+  //    tapping any blank. Each focused blank offers ~5 options — the right word
+  //    plus Datamuse "similar" distractors, biased to the same part of speech
+  //    (offline fallback: other passage words). A correct tap turns green and
+  //    auto-advances to the next unfilled blank; a wrong tap flashes red.
+  //
+  //  • Shuffled tray (slider at max = every word blank): the classic word bank,
+  //    but the tray only holds the current and next verse's words so an all-blank
+  //    chapter isn't overwhelming. Tap words to drop them into the next slot.
+  // ============================================================================
+
+  allBlank = () => (this.state.blankPct || 0) >= 0.999;
+
+  // ---- multiple-choice sub-mode ----
+  nextBlank = (vi) => { const b = this.state.blankList; const i = b.indexOf(vi); for (let j = i + 1; j < b.length; j++) if (this.state.bankChoice[b[j]] == null) return b[j]; return null; };
+  ensureOptions = () => { const vi = this.state.bankActive; if (vi == null) return; this.loadOptions(vi); const nx = this.nextBlank(vi); if (nx != null) this.loadOptions(nx); };
+  loadOptions = async (vi) => {
+    if (vi == null || this.state.bankOpts[vi]) return;
+    const lo = this._optLoading || (this._optLoading = {}); if (lo[vi]) return; lo[vi] = true;
+    const p = this.state.passage; if (!p) return;
+    const correct = p.words[vi].text; const seed = this.hash(p.reference + '|opt|' + vi);
+    let opts;
+    const sim = await this.fetchJson('https://api.datamuse.com/words?ml=' + encodeURIComponent(correct.toLowerCase()) + '&md=p&max=30');
+    if (sim && sim.length) {
+      const posData = await this.fetchJson('https://api.datamuse.com/words?sp=' + encodeURIComponent(correct.toLowerCase()) + '&md=p&max=1');
+      const targetPos = posData && posData[0] ? this.posOf(posData[0].tags) : null;
+      opts = this.buildOptions(correct, sim, targetPos, seed);
+    } else {
+      opts = this.buildOptions(correct, null, null, seed);
+    }
+    this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: opts } });
+  };
+  // Assemble the option list: correct answer + up to 4 distractors, same part of
+  // speech first, topped up from passage words, then shuffled (seeded, stable).
+  buildOptions = (correct, sim, targetPos, seed) => {
+    const cn = this.norm(correct); const seen = new Set([cn]); const cand = [];
+    const push = (w) => { if (!w) return; const n = this.norm(w); if (!n || seen.has(n)) return; if (/\s/.test(w)) return; seen.add(n); cand.push(this.matchCase(correct, w)); };
+    if (sim) {
+      const same = [], other = [];
+      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; const pos = this.posOf(d.tags); (targetPos && pos === targetPos ? same : other).push(d.word); });
+      same.forEach(push); other.forEach(push);
+    }
+    if (cand.length < 4) {
+      const words = (this.state.passage.words || []).map((w) => w.text);
+      const r = this.rng(seed ^ 0x51ed); const sh = words.slice();
+      for (let i = sh.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));[sh[i], sh[j]] = [sh[j], sh[i]]; }
+      sh.forEach((w) => { if (cand.length < 4) push(w); });
+    }
+    const all = [correct, ...cand.slice(0, 4)];
+    const r = this.rng(seed);
+    for (let i = all.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));[all[i], all[j]] = [all[j], all[i]]; }
+    return all;
+  };
+  setBankActive = (vi) => this.setState({ bankActive: vi }, () => { this.ensureOptions(); this.scrollActive(); });
+  bankPrev = () => { const b = this.state.blankList; const i = b.indexOf(this.state.bankActive); if (i > 0) this.setBankActive(b[i - 1]); };
+  bankNext = () => { const b = this.state.blankList; const i = b.indexOf(this.state.bankActive); if (i >= 0 && i < b.length - 1) this.setBankActive(b[i + 1]); };
+  selectBankOption = (vi, opt) => {
+    const p = this.state.passage; if (!p) return;
+    if (this.norm(opt) === this.norm(p.words[vi].text)) {
+      const choice = { ...this.state.bankChoice, [vi]: opt }; const miss = { ...this.state.bankMiss }; delete miss[vi];
+      const nx = this.nextBlank(vi);
+      this.setState({ bankChoice: choice, bankMiss: miss, bankActive: nx != null ? nx : vi }, () => {
+        if (nx != null) { this.ensureOptions(); this.scrollActive(); }
+        this.checkBankMcDone();
+      });
+    } else {
+      this.setState({ bankMiss: { ...this.state.bankMiss, [vi]: opt }, bankMisses: this.state.bankMisses + 1 });
+    }
+  };
+  checkBankMcDone = () => {
+    const b = this.state.blankList; if (!b.length || !b.every((vi) => this.state.bankChoice[vi] != null)) return;
+    const total = b.length; this.recordResult(total / (total + this.state.bankMisses));
+  };
+
+  // ---- shuffled-tray sub-mode (every word blank) ----
+  // Drop the tapped token into the first empty slot, in reading order.
+  placeBank = (id) => {
+    const blanks = this.state.blankList; const fill = { ...this.state.bankFill };
+    const slot = blanks.find((vi) => fill[vi] == null); if (slot == null) return;
+    fill[slot] = id; this.setState({ bankFill: fill }, () => { this.scrollActive(); this.checkBankDone(); });
+  };
+  unplace = (vi) => { const fill = { ...this.state.bankFill }; delete fill[vi]; this.setState({ bankFill: fill }); };
+  checkBankDone = () => {
+    const blanks = this.state.blankList; const p = this.state.passage; if (!p || !this.state.bank) return;
+    if (!blanks.every((vi) => this.state.bankFill[vi] != null)) return;
+    const correct = blanks.filter((vi) => this.norm(this.state.bank.items[this.state.bankFill[vi]].text) === this.norm(p.words[vi].text)).length;
+    this.recordResult(correct / blanks.length);
+  };
+  // The tray only exposes tokens belonging to the current verse (the one holding the
+  // next empty slot) and the verse after it, so an all-blank chapter stays manageable.
+  trayWindow = () => {
+    const st = this.state; const p = st.passage; if (!p || !st.bank) return [];
+    const used = new Set(Object.values(st.bankFill).filter((x) => x != null));
+    const firstSlot = st.blankList.find((vi) => st.bankFill[vi] == null);
+    if (firstSlot == null) return [];
+    const v0 = p.words[firstSlot].v;
+    return st.bank.order
+      .filter((id) => !used.has(id) && (p.words[st.bank.items[id].vi].v === v0 || p.words[st.bank.items[id].vi].v === v0 + 1))
+      .map((id) => ({ text: st.bank.items[id].text, onClick: this.tapGuard('tray' + id, () => this.placeBank(id)) }));
+  };
+
+  // ---- shared rendering ----
+  renderWord_bank = (s, key) => {
+    const h = React.createElement; const vi = s.vi, text = s.text; const st = this.state;
+    if (this.allBlank()) {
+      const pid = st.bankFill[vi];
+      if (pid == null) {
+        const firstSlot = st.blankList.find((x) => st.bankFill[x] == null);
+        const active = vi === firstSlot;
+        return h('span', { key, 'data-active': active ? '1' : null, style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.8) + 'em', borderBottom: '2px ' + (active ? 'solid var(--accent)' : 'dashed var(--muted)'), background: active ? 'var(--accent-soft)' : 'transparent', borderRadius: active ? '4px 4px 0 0' : '0', color: 'transparent' } }, ' ');
+      }
+      const it = st.bank.items[pid]; const ok = this.norm(it.text) === this.norm(text);
+      return h('span', { key, onClick: this.tapGuard('unp' + vi, () => this.unplace(vi)), title: 'tap to remove', style: { cursor: 'pointer', touchAction: 'manipulation', color: ok ? 'var(--good)' : 'var(--bad)', borderBottom: '2px solid ' + (ok ? 'var(--good)' : 'var(--bad)'), padding: '0 2px' } }, it.text);
+    }
+    const chosen = st.bankChoice[vi];
+    if (chosen != null) return h('span', { key, onClick: this.tapGuard('re' + vi, () => this.setBankActive(vi)), title: 'tap to revisit', style: { cursor: 'pointer', touchAction: 'manipulation', color: 'var(--good)', borderBottom: '2px solid var(--good)', padding: '0 2px' } }, chosen);
+    const active = vi === st.bankActive;
+    return h('span', { key, 'data-active': active ? '1' : null, onClick: this.tapGuard('ba' + vi, () => this.setBankActive(vi)), style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.8) + 'em', cursor: 'pointer', touchAction: 'manipulation', borderBottom: '2px ' + (active ? 'solid var(--accent)' : 'dashed var(--muted)'), background: active ? 'var(--accent-soft)' : 'transparent', borderRadius: active ? '4px 4px 0 0' : '0', color: 'transparent', padding: '0 2px' } }, ' ');
+  };
+
+  // Footer control values for word-bank mode.
+  vals_bank = () => {
+    const st = this.state; const p = st.passage;
+    const optBtn = { padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--text)', fontFamily: "'Gentium Book Plus',serif", fontSize: '18px', cursor: 'pointer', touchAction: 'manipulation' };
+    const wrongOpt = { borderColor: 'var(--bad)', background: 'var(--accent-soft)', color: 'var(--bad)' };
+    const out = { isBank: st.mode === 'bank', bankTray: false, bankMc: false, bankItems: [], bankEmpty: true, bankOptions: [], optionsLoading: false, bankActiveLabel: '', bankStatus: '', bankAtStart: true, bankAtEnd: true, bankPrev: this.bankPrev, bankNext: this.bankNext, bankTrayBtn: { padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: "'Gentium Book Plus',serif", fontSize: '17px', cursor: 'pointer', touchAction: 'manipulation' } };
+    if (!p || st.mode !== 'bank') return out;
+
+    if (this.allBlank()) {
+      out.bankTray = true;
+      out.bankItems = this.trayWindow();
+      out.bankEmpty = out.bankItems.length === 0;
+      const total = st.blankList.length;
+      const filled = st.blankList.filter((vi) => st.bankFill[vi] != null).length;
+      if (filled < total) out.bankStatus = filled + ' / ' + total + ' placed';
+      else { const correct = st.blankList.filter((vi) => st.bank && this.norm(st.bank.items[st.bankFill[vi]].text) === this.norm(p.words[vi].text)).length; out.bankStatus = correct + ' / ' + total + ' correct'; }
+      return out;
+    }
+
+    out.bankMc = true;
+    const vi = st.bankActive; const idx = st.blankList.indexOf(vi);
+    out.bankAtStart = idx <= 0; out.bankAtEnd = idx < 0 || idx >= st.blankList.length - 1;
+    out.bankActiveLabel = vi != null ? 'Blank ' + (idx + 1) + ' of ' + st.blankList.length : '';
+    const opts = vi != null ? st.bankOpts[vi] : null;
+    out.optionsLoading = vi != null && st.bankChoice[vi] == null && !opts;
+    if (vi != null && opts && st.bankChoice[vi] == null) {
+      out.bankOptions = opts.map((o) => ({ text: o, onClick: this.tapGuard('opt' + vi + '|' + o, () => this.selectBankOption(vi, o)), style: { ...optBtn, ...(st.bankMiss[vi] != null && this.norm(st.bankMiss[vi]) === this.norm(o) ? wrongOpt : {}) } }));
+    }
+    const done = st.blankList.filter((x) => st.bankChoice[x] != null).length;
+    out.bankStatus = done + ' / ' + st.blankList.length + ' filled' + (st.bankMisses ? ' · ' + st.bankMisses + ' slips' : '');
+    return out;
+  };
+
+  // ============================================================================
+  // mode-type.js — "Type it" practice mode (class-body fragment; see core.js).
+  // Type the passage one word at a time. Backspace at the start of an empty input
+  // steps back to the previous word so you can fix a submitted mistake; tapping any
+  // word jumps the cursor there. Each word's typed value is remembered per index.
+  // ============================================================================
+
+  currentWord = () => { const p = this.state.passage; return p && this.state.typeIdx < p.words.length ? p.words[this.state.typeIdx].text : null; };
+  onTypeChange = (e) => {
+    const val = e.target.value; const cur = this.currentWord();
+    if (!cur) { this.setState({ typeInput: '' }); return; }
+    if (/\s$/.test(val)) { this.commitType(val.trim()); return; }
+    if (this.norm(val) === this.norm(cur) && this.norm(val).length >= this.norm(cur).length) { this.commitType(val); return; }
+    this.setState({ typeInput: val });
+  };
+  onTypeKey = (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); this.commitType(this.state.typeInput.trim()); return; }
+    // Backspace on an empty field returns to the previous word, reloading what was
+    // typed there so a submitted mistake can be corrected.
+    if (e.key === 'Backspace' && this.state.typeInput === '' && this.state.typeIdx > 0) {
+      e.preventDefault(); const pi = this.state.typeIdx - 1;
+      this.setState({ typeIdx: pi, typeInput: this.state.typeVals[pi] || '' }, () => this.scrollActive());
+    }
+  };
+  jumpType = (vi) => { this.setState({ typeIdx: vi, typeInput: this.state.typeVals[vi] || '' }, () => { this.scrollActive(); const el = document.querySelector('[data-typebox="1"]'); if (el) el.focus(); }); };
+  commitType = (val) => {
+    const cur = this.currentWord(); if (cur == null) return;
+    const correct = this.norm(val) === this.norm(cur);
+    const vals = { ...this.state.typeVals, [this.state.typeIdx]: val };
+    if (correct) {
+      const ni = this.state.typeIdx + 1;
+      this.setState({ typeIdx: ni, typeInput: '', typeVals: vals }, () => { this.scrollActive(); if (ni >= this.state.passage.words.length) this.finishType(); });
+    } else {
+      this.setState({ typeErrors: this.state.typeErrors + 1, typeInput: '', typeVals: vals });
+    }
+  };
+  finishType = () => { const total = this.state.passage.words.length; this.recordResult(total / (total + this.state.typeErrors)); };
+
+  renderWord_type = (s, key) => {
+    const h = React.createElement; const vi = s.vi, text = s.text; const st = this.state; const ti = st.typeIdx;
+    if (vi < ti) {
+      const typed = st.typeVals[vi]; const ok = typed == null || this.norm(typed) === this.norm(text);
+      return h('span', { key, onClick: this.tapGuard('jt' + vi, () => this.jumpType(vi)), title: 'tap to fix', style: { cursor: 'pointer', touchAction: 'manipulation', color: ok ? 'var(--accent)' : 'var(--bad)' } }, text);
+    }
+    if (vi === ti) return h('span', { key, 'data-active': '1', onClick: this.tapGuard('jt' + vi, () => this.jumpType(vi)), style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.6) + 'em', background: 'var(--accent-soft)', borderRadius: '4px', boxShadow: 'inset 0 -2px 0 var(--accent)', color: st.showHints ? 'var(--muted)' : 'transparent', textAlign: 'center', cursor: 'pointer', touchAction: 'manipulation' } }, st.showHints ? text[0] : ' ');
+    return h('span', { key, onClick: this.tapGuard('jt' + vi, () => this.jumpType(vi)), style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.6) + 'em', borderBottom: '1px dotted var(--muted)', color: 'transparent', cursor: 'pointer', touchAction: 'manipulation' } }, ' ');
+  };
+
+  // Footer control values for type mode.
+  vals_type = () => {
+    const st = this.state; const p = st.passage; const cur = this.currentWord();
+    const typeHint = !p ? '' : cur ? (st.showHints ? 'starts with “' + cur[0] + '”' : 'type the next word') : 'Finished — well done.';
+    const typeProgress = p ? (Math.min(st.typeIdx, p.words.length) + ' / ' + p.words.length + ' words' + (st.typeErrors ? ' · ' + st.typeErrors + ' slips' : '')) : '';
+    return { isType: st.mode === 'type', typeInput: st.typeInput, onTypeChange: this.onTypeChange, onTypeKey: this.onTypeKey, typeHint, typeProgress };
+  };
+
+  // ============================================================================
+  // render.js — rendering glue (class-body fragment; see core.js). Dispatches each
+  // word to the active mode's renderWord_*, lays out the passage, and assembles the
+  // flat renderVals() object the template binds against (merging each mode's
+  // vals_* footer values with the shared chrome/picker/status values).
+  // ============================================================================
+
   sizeMap = { Compact: { fs: 'clamp(17px,2vw,22px)', lh: 1.85 }, Comfortable: { fs: 'clamp(19px,2.4vw,27px)', lh: 1.95 }, Large: { fs: 'clamp(22px,3vw,33px)', lh: 2.0 } };
+
   renderWord = (s, key) => {
     const h = React.createElement; if (!s.w) return h('span', { key }, s.text);
-    const vi = s.vi, text = s.text, mode = this.state.mode;
-    if (this.state.revealAllNow) return h('span', { key, style: { color: 'var(--accent)' } }, text);
-    if (mode === 'hide') {
-      if (!this.state.hideAll) return h('span', { key }, text);
-      if (this.state.revealed[vi]) return h('span', { key, style: { color: 'var(--accent)' } }, text);
-      return h('span', { key, onClick: () => this.revealWord(vi), title: 'tap to peek', style: { cursor: 'pointer', background: 'var(--accent-soft)', color: 'transparent', borderRadius: '4px', padding: '0 2px', boxShadow: 'inset 0 -1px 0 var(--line)' } }, text);
-    }
-    if (mode === 'hidden') {
-      if (!this._blankSet.has(vi)) return h('span', { key }, text);
-      const val = this.state.hiddenVals[vi] || ''; const ok = this.norm(val) === this.norm(text); const filled = val.length > 0;
-      const col = !filled ? 'var(--muted)' : ok ? 'var(--good)' : 'var(--bad)';
-      return h('input', { key, 'data-blank': vi, value: val, onChange: (e) => this.onBlankChange(vi, e.target.value), placeholder: this.state.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', style: { font: 'inherit', fontFamily: "'Gentium Book Plus',serif", width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px' } });
-    }
-    if (mode === 'bank') {
-      if (!this._blankSet.has(vi)) return h('span', { key }, text);
-      const pid = this.state.bankFill[vi];
-      if (pid == null) return h('span', { key, style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.8) + 'em', borderBottom: '2px dashed var(--muted)', color: 'transparent' } }, '\u00a0');
-      const it = this.state.bank.items[pid]; const ok = this.norm(it.text) === this.norm(text);
-      return h('span', { key, onClick: () => this.unplace(vi), title: 'tap to remove', style: { cursor: 'pointer', color: ok ? 'var(--good)' : 'var(--bad)', borderBottom: '2px solid ' + (ok ? 'var(--good)' : 'var(--bad)'), padding: '0 2px' } }, it.text);
-    }
-    if (mode === 'type') {
-      const ti = this.state.typeIdx;
-      if (vi < ti) return h('span', { key, style: { color: 'var(--accent)' } }, text);
-      if (vi === ti) return h('span', { key, style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.6) + 'em', background: 'var(--accent-soft)', borderRadius: '4px', boxShadow: 'inset 0 -2px 0 var(--accent)', color: this.state.showHints ? 'var(--muted)' : 'transparent', textAlign: 'center' } }, this.state.showHints ? text[0] : '\u00a0');
-      return h('span', { key, style: { display: 'inline-block', minWidth: (text.length * 0.6 + 0.6) + 'em', borderBottom: '1px dotted var(--muted)', color: 'transparent' } }, '\u00a0');
-    }
-    return h('span', { key }, text);
+    const vi = s.vi, mode = this.state.mode;
+    if (this.state.revealAllNow) return h('span', { key, style: { color: 'var(--accent)' } }, s.text);
+    if (mode === 'hide') return this.renderWord_hide(s, key);
+    if (mode === 'type') return this.renderWord_type(s, key);
+    // fill / bank only style the selected blanks; everything else is plain text.
+    if (!this._blankSet.has(vi)) return h('span', { key }, s.text);
+    if (mode === 'hidden') return this.renderWord_fill(s, key);
+    if (mode === 'bank') return this.renderWord_bank(s, key);
+    return h('span', { key }, s.text);
   };
   renderPractice = () => {
     const h = React.createElement; const p = this.state.passage;
@@ -859,49 +1194,33 @@ class Component extends DCLogic {
     const meta = this.bookMeta(st.book); const single = meta.chapters === 1;
     const count = this.curVerseCount(); const whole = this.isWholeSel();
 
-    const ghostBtn = { padding: '9px 15px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
-    const primaryBtn = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fbf8f1', fontSize: '14px', fontWeight: 600, cursor: 'pointer' };
+    const ghostBtn = { padding: '9px 15px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' };
+    const primaryBtn = { padding: '9px 16px', borderRadius: '10px', border: 'none', background: 'var(--accent)', color: '#fbf8f1', fontSize: '14px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' };
     const selectStyle = { padding: '10px 12px', border: '1px solid var(--line)', borderRadius: '10px', background: 'var(--surface)', color: 'var(--text)', fontSize: '15px', outline: 'none', flex: 1, minWidth: '150px' };
-
-    // mode-specific fill status
-    let fillStatus = '';
-    if (p && (st.mode === 'hidden' || st.mode === 'bank')) {
-      const total = st.blankList.length;
-      const filled = st.mode === 'hidden'
-        ? st.blankList.filter((vi) => (st.hiddenVals[vi] || '').trim().length > 0).length
-        : st.blankList.filter((vi) => st.bankFill[vi] != null).length;
-      if (filled < total) fillStatus = filled + ' / ' + total + ' filled';
-      else {
-        const correct = st.mode === 'hidden'
-          ? st.blankList.filter((vi) => this.norm(st.hiddenVals[vi]) === this.norm(p.words[vi].text)).length
-          : st.blankList.filter((vi) => st.bank && this.norm(st.bank.items[st.bankFill[vi]].text) === this.norm(p.words[vi].text)).length;
-        fillStatus = correct + ' / ' + total + ' correct';
-      }
-    }
-
-    // bank tray (unused items)
-    let bankItems = [];
-    if (p && st.mode === 'bank' && st.bank) {
-      const used = new Set(Object.values(st.bankFill).filter((x) => x != null));
-      bankItems = st.bank.order.filter((id) => !used.has(id)).map((id) => ({ text: st.bank.items[id].text, onClick: () => this.placeBank(id) }));
-    }
-
-    // type progress / hint
-    const cur = this.currentWord();
-    const typeHint = !p ? '' : cur ? (st.showHints ? 'starts with \u201c' + cur[0] + '\u201d' : 'type the next word') : 'Finished \u2014 well done.';
-    const typeProgress = p ? (Math.min(st.typeIdx, p.words.length) + ' / ' + p.words.length + ' words' + (st.typeErrors ? ' \u00b7 ' + st.typeErrors + ' slips' : '')) : '';
 
     // streak / best / learned
     const today = new Date().toISOString().slice(0, 10);
     const practicedToday = st.streak.last === today;
     const key = this.passageKey(); const prg = st.progress[key] || { best: 0, learned: false, attempts: 0 };
-    const bestLabel = prg.attempts ? 'Best ' + Math.round(prg.best * 100) + '%' + (prg.attempts ? ' \u00b7 ' + prg.attempts + ' tries' : '') : 'Not practiced yet';
+    const bestLabel = prg.attempts ? 'Best ' + Math.round(prg.best * 100) + '%' + (prg.attempts ? ' · ' + prg.attempts + ' tries' : '') : 'Not practiced yet';
 
     const modeHints = { hide: 'Recite from memory; peek when stuck.', hidden: 'Fill in the missing words.', bank: 'Rebuild it from the word bank.', type: 'Type it one word at a time.' };
 
-    return {
+    // shared "ease" slider (fill + bank): fewest → every word blank
+    const showEase = !!p && (st.mode === 'hidden' || st.mode === 'bank');
+    const easeLabel = this.allBlank() ? 'Every word blank' : Math.round(st.blankPct * 100) + '% blank';
+
+    // pinned footer that floats above the iOS keyboard (translated by kbInset)
+    const showFooter = st.view === 'practice' && !!p;
+    const footerStyle = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 30, transform: 'translateY(-' + (st.kbInset || 0) + 'px)', background: 'var(--bg)', borderTop: '1px solid var(--line)', boxShadow: '0 -6px 20px rgba(0,0,0,.07)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' };
+    const footerInner = { width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '10px' };
+    // Reserve room so the passage's tail can scroll clear of the pinned footer.
+    const practicePad = { paddingBottom: 'calc(230px + env(safe-area-inset-bottom))' };
+    const navBtn = (disabled) => ({ padding: '8px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: disabled ? 'var(--muted)' : 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, touchAction: 'manipulation' });
+
+    const base = {
       // chrome
-      chromeBtn: { padding: '6px 11px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer' },
+      chromeBtn: { padding: '6px 11px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--muted)', fontSize: '12px', fontWeight: 600, cursor: 'pointer', touchAction: 'manipulation' },
       themeLabel: st.theme.charAt(0).toUpperCase() + st.theme.slice(1),
       cycleTheme: this.cycleTheme, openSettings: this.openSettings,
       ghostBtn, primaryBtn,
@@ -914,7 +1233,7 @@ class Component extends DCLogic {
 
       // picker
       pickerOpen: st.pickerOpen, togglePicker: this.togglePicker,
-      pickerChevron: st.pickerOpen ? '\u25be' : '\u25b8',
+      pickerChevron: st.pickerOpen ? '▾' : '▸',
       versions: ['ESV', 'KJV', 'Greek'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
       books: st.version === 'Greek' ? this.BOOKS.filter((b, i) => i >= 39) : this.BOOKS, book: st.book, onBook: this.onBook, selectStyle,
       chapterSelectStyle: { ...selectStyle, flex: 'none', minWidth: '92px' },
@@ -927,7 +1246,7 @@ class Component extends DCLogic {
       onVStart: this.onVStart, onVEnd: this.onVEnd, onRefKey: this.onRefKey,
       verseSelectStyle: { padding: '8px 9px', border: '1px solid var(--line)', borderRadius: '8px', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', outline: 'none' },
       setWhole: this.setWhole, wholeBtn: this.toggleBtn(whole), wholeLabel: single ? 'Whole book' : 'Whole chapter',
-      load: this.doLoad, loadBtn: primaryBtn, loadLabel: st.loading ? 'Loading\u2026' : 'Load passage',
+      load: this.doLoad, loadBtn: primaryBtn, loadLabel: st.loading ? 'Loading…' : 'Load passage',
 
       // errors
       hasError: !!st.error, error: st.error, offerKjv: st.offerKjv, switchToKjv: this.switchToKjv,
@@ -940,20 +1259,19 @@ class Component extends DCLogic {
       modeHint: modeHints[st.mode] || '',
       practice: this.renderPractice(),
 
-      // mode toolbars
-      isHide: st.mode === 'hide', toggleHideAll: this.toggleHideAll, hideToggleLabel: st.hideAll ? 'Show passage' : 'Hide passage', revealAll: this.revealAll,
-      isHidden: st.mode === 'hidden', blankPct: st.blankPct, onBlankPct: this.onBlankPct,
-      isBank: st.mode === 'bank', bankItems, bankEmpty: bankItems.length === 0,
-      bankBtn: { padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: "'Gentium Book Plus',serif", fontSize: '17px', cursor: 'pointer' },
-      isType: st.mode === 'type', typeInput: st.typeInput, onTypeChange: this.onTypeChange, onTypeKey: this.onTypeKey, typeHint, typeProgress,
+      // ease slider (top of passage)
+      showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
+
+      // pinned footer
+      showFooter, footerStyle, footerInner, practicePad, navBtn,
+      revealAll: this.revealAll, resetMode: this.resetMode,
       toggleHints: this.toggleHints, hintsBtn: this.toggleBtn(st.showHints), hintsLabel: st.showHints ? 'Hints on' : 'Hints off',
-      resetMode: this.resetMode, fillStatus,
 
       // status
       streakDot: practicedToday ? 'var(--accent)' : 'var(--line)',
-      streakLabel: (st.streak.count || 0) + (st.streak.count === 1 ? '-day streak' : '-day streak'),
+      streakLabel: (st.streak.count || 0) + '-day streak',
       bestLabel,
-      toggleLearned: this.toggleLearned, learnedBtn: this.toggleBtn(prg.learned), learnedLabel: prg.learned ? '\u2713 Learned' : 'Mark as learned',
+      toggleLearned: this.toggleLearned, learnedBtn: this.toggleBtn(prg.learned), learnedLabel: prg.learned ? '✓ Learned' : 'Mark as learned',
 
       // attribution
       isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', openCopyright: this.openCopyright,
@@ -963,7 +1281,7 @@ class Component extends DCLogic {
       esvToken: st.esvToken, onTokenChange: this.onTokenChange, tokenState: st.esvToken ? 'Token saved.' : 'No token yet.',
       themeOpts: ['system', 'light', 'dark'].map((t) => ({ label: t.charAt(0).toUpperCase() + t.slice(1), onClick: () => this.setTheme(t), style: this.seg(t === st.theme) })),
       toggleReminder: this.toggleReminder, reminderBtn: this.toggleBtn(st.reminderOn), reminderLabel: st.reminderOn ? 'On' : 'Off',
-      cacheStatus: st.cacheCount + (st.cacheCount === 1 ? ' verse cached.' : ' verses cached.'),
+      cacheStatus: st.cacheCount + (st.cacheCount === 1 ? ' ESV verse cached.' : ' ESV verses cached.'),
       clearCache: this.clearCache,
       usageVisible: st.usageToday > 0, usageToday: st.usageToday.toLocaleString(),
 
@@ -971,6 +1289,19 @@ class Component extends DCLogic {
 
       // app update prompt
       updateReady: st.updateReady, applyUpdate: this.applyUpdate, dismissUpdate: this.dismissUpdate,
+    };
+
+    // Per-mode footer values, computed in their own files.
+    const bankVals = this.vals_bank();
+    return {
+      ...base,
+      ...this.vals_hide(),
+      ...this.vals_fill(),
+      ...bankVals,
+      ...this.vals_type(),
+      // nav buttons depend on bank enabled/disabled state
+      bankPrevBtn: navBtn(bankVals.bankAtStart),
+      bankNextBtn: navBtn(bankVals.bankAtEnd),
     };
   }
 }

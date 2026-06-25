@@ -26,7 +26,23 @@ const escapeAttr = (s) =>
 const helmet = src('helmet.html').trimEnd();
 const template = src('template.html').trim();
 const props = src('props.json').trimEnd();
-const logic = src('logic.js').trimEnd();
+
+// The component logic is split by concern under src/logic/ for editability, but the
+// dc-runtime needs a single `class Component extends DCLogic`. Each file is a
+// CLASS-BODY FRAGMENT (members only); we concatenate them inside one class here.
+// Order: shared core first, then one file per practice mode, then the render glue.
+const LOGIC_PARTS = [
+  'logic/core.js',
+  'logic/mode-hide.js',
+  'logic/mode-fill.js',
+  'logic/mode-bank.js',
+  'logic/mode-type.js',
+  'logic/render.js',
+];
+const logic =
+  'class Component extends DCLogic {\n' +
+  LOGIC_PARTS.map((f) => src(f).replace(/\s+$/, '')).join('\n\n') +
+  '\n}';
 
 // Validate props is real JSON before we bake it into an attribute.
 JSON.parse(props);
