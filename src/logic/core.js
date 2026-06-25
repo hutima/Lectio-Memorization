@@ -34,6 +34,7 @@
     cacheCount: 0, usageToday: 0,
     updateReady: false, updateMsg: '',
     kbInset: 0,
+    canonOpen: {},
   };
 
   BOOKS = [
@@ -260,7 +261,11 @@
   posPool = (pos) => { const p = this.POS_POOL; if (pos && p[pos]) return p[pos]; return p.n.concat(p.v, p.adj); };
 
   // ---------- text utils ----------
-  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[‘’]/g, "'").replace(/[^\p{L}\p{N}']/gu, '');
+  // Normalize a word for matching: fold case + diacritics + Greek final sigma, then
+  // drop EVERY non-alphanumeric — including apostrophes (curly or straight). So a
+  // possessive/contraction matches whether or not the punctuation is typed ("Lords"
+  // == "Lord's", "dont" == "don't"). Used by all graded modes (Test, Fill, Bank).
+  norm = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/ς/g, 'σ').replace(/[^\p{L}\p{N}]/gu, '');
   stripHtml = (s) => (s || '').replace(/<S>.*?<\/S>/g, '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
   // Collapse whitespace and clip to n chars (with an ellipsis) — used for the
   // catechism question labels in the picker dropdown.
