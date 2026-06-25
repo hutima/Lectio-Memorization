@@ -169,10 +169,10 @@
 
   // ---------- dictionary (Datamuse + offline fallback) ----------
   // Used to build word-bank distractors: similar-meaning words, biased to the same
-  // part of speech. Free, no key. The fetch is time-boxed so a slow or blocked
-  // network can't leave the "Finding similar words…" spinner hanging — on timeout
-  // or failure we fall back to the offline, part-of-speech-aware pools below.
-  fetchJson = async (url, ms = 3000) => {
+  // part of speech. Free, no key. The fetch is time-boxed (~2s default) so a slow
+  // or blocked network can't leave the "Finding similar words…" spinner hanging —
+  // on timeout or failure we fall back to the offline, part-of-speech-aware pools.
+  fetchJson = async (url, ms = 2000) => {
     try {
       const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
       const t = ctrl ? setTimeout(() => { try { ctrl.abort(); } catch (e) {} }, ms) : null;
