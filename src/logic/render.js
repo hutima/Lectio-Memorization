@@ -54,15 +54,22 @@
     const showEase = !!p && (st.mode === 'hidden' || st.mode === 'bank');
     const easeLabel = this.allBlank() ? 'Every word blank' : Math.round(st.blankPct * 100) + '% blank';
 
-    // The practice control bar lives in the sticky header region at the TOP of the
-    // screen — not pinned to the bottom. On iOS the bottom-pinned bar was wedged
-    // away from the keyboard by Safari's bottom URL bar; anchoring it to the top
-    // keeps it reachable and stable while typing, independent of the keyboard.
+    // Control-bar placement. The typing modes (fill / type) put the bar in the
+    // sticky header region at the TOP: on iOS a bottom-pinned bar was wedged away
+    // from the keyboard by Safari's bottom URL bar, so anchoring it up top keeps it
+    // stable while typing. Word bank has no text entry — no keyboard to dodge — so
+    // its bar stays pinned at the BOTTOM where it's easiest to reach.
     const showFooter = st.view === 'practice' && !!p;
+    const showTopBar = showFooter && st.mode !== 'bank';
+    const showBankBar = showFooter && st.mode === 'bank';
     const footerStyle = { borderTop: '1px solid var(--line)', padding: '8px 0 4px' };
+    const bankBarStyle = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 30, background: 'var(--bg)', borderTop: '1px solid var(--line)', boxShadow: '0 -6px 20px rgba(0,0,0,.07)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' };
     const footerInner = { width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '10px' };
-    // Reserve room so the passage's tail can scroll clear of the pinned footer.
-    const practicePad = { paddingBottom: 'calc(230px + env(safe-area-inset-bottom))' };
+    // Reserve bottom room so the passage tail can scroll clear: enough to lift the
+    // last blanks above the keyboard (top-bar modes), or to clear the bottom-pinned
+    // word-bank bar (whose tray can reach ~34vh). A CSS string — it's interpolated
+    // into the practice wrapper's style attribute.
+    const practicePad = 'padding-bottom:' + (st.mode === 'bank' ? 'calc(48vh + env(safe-area-inset-bottom))' : 'calc(40vh + env(safe-area-inset-bottom))');
     const navBtn = (disabled) => ({ padding: '8px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: disabled ? 'var(--muted)' : 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, touchAction: 'manipulation' });
 
     const base = {
@@ -109,8 +116,8 @@
       // ease slider (top of passage)
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
 
-      // pinned footer
-      showFooter, footerStyle, footerInner, practicePad, navBtn,
+      // control bars (top for typing modes, bottom for word bank)
+      showFooter, showTopBar, showBankBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,
       revealAll: this.revealAll, toggleRevealAll: this.toggleRevealAll,
       revealAllLabel: st.revealAllNow ? 'Hide again' : 'Reveal all',
       resetMode: this.resetMode,

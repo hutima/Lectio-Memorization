@@ -54,7 +54,7 @@ input[type=range]{accent-color:var(--accent);}
       <button onClick="{{ openSettings }}" style="{{ chromeBtn }}">Settings</button>
     </header>
 
-    <sc-if value="{{ showFooter }}" hint-placeholder-val="{{ false }}">
+    <sc-if value="{{ showTopBar }}" hint-placeholder-val="{{ false }}">
       <div style="{{ footerStyle }}">
         <div style="{{ footerInner }}">
 
@@ -75,42 +75,6 @@ input[type=range]{accent-color:var(--accent);}
               <span style="flex:1;"></span>
               <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
             </div>
-          </sc-if>
-
-          <sc-if value="{{ isBank }}" hint-placeholder-val="{{ false }}">
-            <sc-if value="{{ bankMc }}" hint-placeholder-val="{{ true }}">
-              <div style="display:flex;flex-direction:column;gap:10px;">
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                  <button onClick="{{ bankPrev }}" style="{{ bankPrevBtn }}">‹ Prev</button>
-                  <button onClick="{{ bankNext }}" style="{{ bankNextBtn }}">Next ›</button>
-                  <span style="font-size:13px;color:var(--muted);">{{ bankActiveLabel }}</span>
-                  <span style="flex:1;"></span>
-                  <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
-                </div>
-                <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;align-items:center;">
-                  <sc-for list="{{ bankOptions }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.text }}</button></sc-for>
-                  <sc-if value="{{ optionsLoading }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);">Finding similar words…</span></sc-if>
-                </div>
-                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                  <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-                  <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-                </div>
-              </div>
-            </sc-if>
-            <sc-if value="{{ bankTray }}" hint-placeholder-val="{{ false }}">
-              <div style="display:flex;flex-direction:column;gap:10px;">
-                <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;max-height:34vh;overflow:auto;">
-                  <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankTrayBtn }}">{{ b.text }}</button></sc-for>
-                  <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
-                </div>
-                <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-                  <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-                  <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-                  <span style="flex:1;"></span>
-                  <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
-                </div>
-              </div>
-            </sc-if>
           </sc-if>
 
           <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
@@ -230,7 +194,7 @@ input[type=range]{accent-color:var(--accent);}
     </sc-if>
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
-    <div style="display:flex;flex-direction:column;gap:16px;padding-bottom:calc(40vh + env(safe-area-inset-bottom));">
+    <div style="display:flex;flex-direction:column;gap:16px;{{ practicePad }};">
     <div style="display:flex;gap:6px;flex-wrap:wrap;">
       <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
     </div>
@@ -282,6 +246,46 @@ input[type=range]{accent-color:var(--accent);}
     </sc-if>
 
   </main>
+
+  <sc-if value="{{ showBankBar }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ bankBarStyle }}">
+      <div style="{{ footerInner }}">
+        <sc-if value="{{ bankMc }}" hint-placeholder-val="{{ true }}">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button onClick="{{ bankPrev }}" style="{{ bankPrevBtn }}">‹ Prev</button>
+              <button onClick="{{ bankNext }}" style="{{ bankNextBtn }}">Next ›</button>
+              <span style="font-size:13px;color:var(--muted);">{{ bankActiveLabel }}</span>
+              <span style="flex:1;"></span>
+              <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;align-items:center;">
+              <sc-for list="{{ bankOptions }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.text }}</button></sc-for>
+              <sc-if value="{{ optionsLoading }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);">Finding similar words…</span></sc-if>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+            </div>
+          </div>
+        </sc-if>
+        <sc-if value="{{ bankTray }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:10px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;max-height:34vh;overflow:auto;">
+              <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankTrayBtn }}">{{ b.text }}</button></sc-for>
+              <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+              <span style="flex:1;"></span>
+              <span style="font-size:13px;color:var(--muted);">{{ bankStatus }}</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
 
   <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
     <div onClick="{{ closeSettings }}" style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:40;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto;">
@@ -1303,15 +1307,22 @@ class Component extends DCLogic {
     const showEase = !!p && (st.mode === 'hidden' || st.mode === 'bank');
     const easeLabel = this.allBlank() ? 'Every word blank' : Math.round(st.blankPct * 100) + '% blank';
 
-    // The practice control bar lives in the sticky header region at the TOP of the
-    // screen — not pinned to the bottom. On iOS the bottom-pinned bar was wedged
-    // away from the keyboard by Safari's bottom URL bar; anchoring it to the top
-    // keeps it reachable and stable while typing, independent of the keyboard.
+    // Control-bar placement. The typing modes (fill / type) put the bar in the
+    // sticky header region at the TOP: on iOS a bottom-pinned bar was wedged away
+    // from the keyboard by Safari's bottom URL bar, so anchoring it up top keeps it
+    // stable while typing. Word bank has no text entry — no keyboard to dodge — so
+    // its bar stays pinned at the BOTTOM where it's easiest to reach.
     const showFooter = st.view === 'practice' && !!p;
+    const showTopBar = showFooter && st.mode !== 'bank';
+    const showBankBar = showFooter && st.mode === 'bank';
     const footerStyle = { borderTop: '1px solid var(--line)', padding: '8px 0 4px' };
+    const bankBarStyle = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 30, background: 'var(--bg)', borderTop: '1px solid var(--line)', boxShadow: '0 -6px 20px rgba(0,0,0,.07)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' };
     const footerInner = { width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '10px' };
-    // Reserve room so the passage's tail can scroll clear of the pinned footer.
-    const practicePad = { paddingBottom: 'calc(230px + env(safe-area-inset-bottom))' };
+    // Reserve bottom room so the passage tail can scroll clear: enough to lift the
+    // last blanks above the keyboard (top-bar modes), or to clear the bottom-pinned
+    // word-bank bar (whose tray can reach ~34vh). A CSS string — it's interpolated
+    // into the practice wrapper's style attribute.
+    const practicePad = 'padding-bottom:' + (st.mode === 'bank' ? 'calc(48vh + env(safe-area-inset-bottom))' : 'calc(40vh + env(safe-area-inset-bottom))');
     const navBtn = (disabled) => ({ padding: '8px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: disabled ? 'var(--muted)' : 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, touchAction: 'manipulation' });
 
     const base = {
@@ -1358,8 +1369,8 @@ class Component extends DCLogic {
       // ease slider (top of passage)
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
 
-      // pinned footer
-      showFooter, footerStyle, footerInner, practicePad, navBtn,
+      // control bars (top for typing modes, bottom for word bank)
+      showFooter, showTopBar, showBankBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,
       revealAll: this.revealAll, toggleRevealAll: this.toggleRevealAll,
       revealAllLabel: st.revealAllNow ? 'Hide again' : 'Reveal all',
       resetMode: this.resetMode,
