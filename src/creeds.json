@@ -1,5 +1,32 @@
 [
   {
+    "id": "lords-prayer",
+    "title": "The Lord's Prayer",
+    "short": "Lord's Prayer",
+    "kind": "creed",
+    "attribution": "The Lord's Prayer (Matthew 6:9–13) · traditional English and Byzantine Greek texts (public domain).",
+    "langs": [
+      {
+        "id": "en",
+        "label": "English",
+        "paras": [
+          "Our Father, who art in heaven, hallowed be thy name. Thy kingdom come. Thy will be done, on earth as it is in heaven.",
+          "Give us this day our daily bread. And forgive us our trespasses, as we forgive those who trespass against us. And lead us not into temptation, but deliver us from evil.",
+          "For thine is the kingdom, and the power, and the glory, for ever and ever. Amen."
+        ]
+      },
+      {
+        "id": "el",
+        "label": "Greek",
+        "paras": [
+          "Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς, ἁγιασθήτω τὸ ὄνομά σου· ἐλθέτω ἡ βασιλεία σου· γενηθήτω τὸ θέλημά σου, ὡς ἐν οὐρανῷ καὶ ἐπὶ τῆς γῆς.",
+          "Τὸν ἄρτον ἡμῶν τὸν ἐπιούσιον δὸς ἡμῖν σήμερον· καὶ ἄφες ἡμῖν τὰ ὀφειλήματα ἡμῶν, ὡς καὶ ἡμεῖς ἀφίεμεν τοῖς ὀφειλέταις ἡμῶν· καὶ μὴ εἰσενέγκῃς ἡμᾶς εἰς πειρασμόν, ἀλλὰ ῥῦσαι ἡμᾶς ἀπὸ τοῦ πονηροῦ.",
+          "Ὅτι σοῦ ἐστιν ἡ βασιλεία καὶ ἡ δύναμις καὶ ἡ δόξα εἰς τοὺς αἰῶνας. Ἀμήν."
+        ]
+      }
+    ]
+  },
+  {
     "id": "apostles",
     "title": "Apostles' Creed",
     "short": "Apostles' Creed",

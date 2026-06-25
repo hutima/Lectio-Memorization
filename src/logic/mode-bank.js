@@ -152,9 +152,9 @@
   // Footer control values for word-bank mode.
   vals_bank = () => {
     const st = this.state; const p = st.passage;
-    const optBtn = { padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--text)', fontFamily: "'Gentium Book Plus',serif", fontSize: '18px', cursor: 'pointer', touchAction: 'manipulation' };
+    const optBtn = { padding: '8px 14px', borderRadius: '10px', border: '1px solid var(--line)', background: 'var(--surface2)', color: 'var(--text)', fontFamily: this.scriptFont(), fontSize: '18px', cursor: 'pointer', touchAction: 'manipulation' };
     const wrongOpt = { borderColor: 'var(--bad)', background: 'var(--accent-soft)', color: 'var(--bad)' };
-    const out = { isBank: st.mode === 'bank', bankTray: false, bankMc: false, bankItems: [], bankEmpty: true, bankOptions: [], optionsLoading: false, bankActiveLabel: '', bankStatus: '', bankAtStart: true, bankAtEnd: true, bankPrev: this.bankPrev, bankNext: this.bankNext, bankTrayBtn: { padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: "'Gentium Book Plus',serif", fontSize: '17px', cursor: 'pointer', touchAction: 'manipulation' } };
+    const out = { isBank: st.mode === 'bank', bankTray: false, bankMc: false, bankItems: [], bankEmpty: true, bankOptions: [], optionsLoading: false, bankActiveLabel: '', bankStatus: '', bankAtStart: true, bankAtEnd: true, bankPrev: this.bankPrev, bankNext: this.bankNext, bankTrayBtn: { padding: '7px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: 'var(--text)', fontFamily: this.scriptFont(), fontSize: '17px', cursor: 'pointer', touchAction: 'manipulation' } };
     if (!p || st.mode !== 'bank') return out;
 
     if (this.allBlank()) {

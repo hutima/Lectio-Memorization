@@ -1,14 +1,17 @@
   // ============================================================================
   // mode-hide.js — "Hide & reveal" practice mode (class-body fragment; see core.js).
-  // Progressively hide every word; tap a hidden word to peek. "Reveal all" ends it.
+  // Progressively hide every word; tap a hidden word to peek. The Hide/Show toggle is
+  // the only control — hiding the passage (to recite) counts as practice for the day.
   // ============================================================================
 
-  toggleHideAll = () => this.setState({ hideAll: !this.state.hideAll, revealed: {} });
+  // Hiding the passage marks the day practiced (this used to ride on the removed
+  // "Reveal all" button); showing it again is a no-op for the streak.
+  toggleHideAll = () => { const on = !this.state.hideAll; this.setState({ hideAll: on, revealed: {} }); if (on) this.markPracticed(); };
   revealWord = (vi) => this.setState({ revealed: { ...this.state.revealed, [vi]: true } });
   // "Reveal all" shows the whole passage. It snapshots the hide-mode state so the
   // user can step back into exactly where they were; the other modes keep their
   // progress (typed/placed words) untouched while revealed, so undo just hides
-  // the answers again. Counts as a practice for the day.
+  // the answers again. Counts as a practice for the day. (Used by fill/type/bank.)
   revealAll = () => {
     this._revealPrev = { hideAll: this.state.hideAll, revealed: this.state.revealed };
     this.setState({ revealAllNow: true, hideAll: false, revealed: {} });
