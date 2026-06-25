@@ -24,15 +24,17 @@
     const lo = this._optLoading || (this._optLoading = {}); if (lo[vi]) return; lo[vi] = true;
     const p = this.state.passage; if (!p) return;
     const correct = p.words[vi].text; const seed = this.hash(p.reference + '|opt|' + vi);
-    let opts;
-    const sim = await this.fetchJson('https://api.datamuse.com/words?ml=' + encodeURIComponent(correct.toLowerCase()) + '&md=p&max=30');
-    if (sim && sim.length) {
-      const posData = await this.fetchJson('https://api.datamuse.com/words?sp=' + encodeURIComponent(correct.toLowerCase()) + '&md=p&max=1');
-      const targetPos = posData && posData[0] ? this.posOf(posData[0].tags) : null;
-      opts = this.buildOptions(correct, sim, targetPos, seed);
-    } else {
-      opts = this.buildOptions(correct, null, null, seed);
-    }
+    const q = encodeURIComponent(correct.toLowerCase());
+    // The two Datamuse lookups (similar words + part of speech) race a single ~2s
+    // deadline in parallel — not back to back — so a slow or blocked network can't
+    // hold the "Finding similar words…" spinner for long. Whatever hasn't answered
+    // by then is dropped and buildOptions falls back to the offline POS dictionary.
+    const [sim, posData] = await Promise.all([
+      this.fetchJson('https://api.datamuse.com/words?ml=' + q + '&md=p&max=30', 2000),
+      this.fetchJson('https://api.datamuse.com/words?sp=' + q + '&md=p&max=1', 2000),
+    ]);
+    const targetPos = posData && posData[0] ? this.posOf(posData[0].tags) : null;
+    const opts = this.buildOptions(correct, (sim && sim.length ? sim : null), targetPos, seed);
     this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: opts } });
   };
   // Assemble the option list: correct answer + up to 4 distractors, same part of
