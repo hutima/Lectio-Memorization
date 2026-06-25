@@ -1,0 +1,29 @@
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#3b6e4f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Lectio">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gentium+Book+Plus:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+html{
+  --bg:#f1ece0; --surface:#fbf8f1; --surface2:#f4eee2; --text:#2c281f; --muted:#8c8472;
+  --line:#e2dac9; --accent:#3b6e4f; --accent-soft:rgba(59,110,79,.13); --good:#3b6e4f; --bad:#b4503e;
+}
+html[data-theme="dark"]{
+  --bg:#1b1916; --surface:#24211c; --surface2:#2c2823; --text:#ece6d8; --muted:#9c9485;
+  --line:#3a352d; --accent:#73ad8b; --accent-soft:rgba(115,173,139,.18); --good:#73ad8b; --bad:#cf7a68;
+}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans',system-ui,sans-serif;-webkit-text-size-adjust:100%;}
+*{box-sizing:border-box;}
+button{font-family:inherit;}
+input,textarea,select{font-family:inherit;}
+::selection{background:var(--accent-soft);}
+@keyframes shake{10%,90%{transform:translateX(-1px)}20%,80%{transform:translateX(2px)}30%,50%,70%{transform:translateX(-3px)}40%,60%{transform:translateX(3px)}}
+input[type=range]{accent-color:var(--accent);}
+</style>
+<script>
+(function(){try{var t=localStorage.getItem('lectio.theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.setAttribute('data-theme',d?'dark':'light');}catch(e){document.documentElement.setAttribute('data-theme','light');}})();
+</script>

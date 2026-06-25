@@ -1,0 +1,265 @@
+
+
+<div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0 16px calc(40px + env(safe-area-inset-bottom));">
+
+  <header style="width:100%;max-width:800px;position:sticky;top:0;z-index:20;background:var(--bg);padding:14px 0 12px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line);">
+    <div onClick="{{ goHome }}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer;">
+      <div style="width:32px;height:32px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fbf8f1;font-family:'Gentium Book Plus',serif;font-size:21px;line-height:1;flex:none;">L</div>
+      <div style="min-width:0;">
+        <div style="font-weight:700;font-size:18px;letter-spacing:.2px;">Lectio</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:1px;letter-spacing:.3px;">Hide his word in your heart</div>
+      </div>
+    </div>
+    <button onClick="{{ cycleTheme }}" style="{{ chromeBtn }}">{{ themeLabel }}</button>
+    <button onClick="{{ openSettings }}" style="{{ chromeBtn }}">Settings</button>
+  </header>
+
+  <main style="width:100%;max-width:800px;display:flex;flex-direction:column;gap:16px;padding-top:18px;">
+
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:6px;padding:6px 0 2px;">
+        <div style="font-size:12px;color:var(--muted);letter-spacing:1.5px;text-transform:uppercase;">Scripture memory</div>
+        <h1 style="margin:0;font-family:'Gentium Book Plus',serif;font-weight:700;font-size:clamp(30px,6vw,44px);line-height:1.08;">Hide his word<br />in your heart</h1>
+        <p style="margin:6px 0 0;color:var(--muted);font-size:15px;max-width:50ch;line-height:1.55;">Learn a verse, a paragraph, or a whole chapter — one gentle pass at a time. Pick a passage, then choose how you want to practice.</p>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:10px;padding-top:4px;">
+        <button onClick="{{ goHome }}" style="{{ ghostBtn }}">‹ All modes</button>
+        <span style="font-size:13px;color:var(--muted);">{{ currentModeName }}</span>
+      </div>
+    </sc-if>
+
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;">
+      <button onClick="{{ togglePicker }}" style="width:100%;display:flex;align-items:center;gap:10px;padding:14px 16px;background:none;border:none;cursor:pointer;text-align:left;color:var(--text);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:11px;color:var(--muted);letter-spacing:.6px;text-transform:uppercase;">Passage</div>
+          <div style="font-family:'Gentium Book Plus',serif;font-size:20px;font-weight:700;margin-top:2px;">{{ reference }} <span style="font-size:11px;color:var(--muted);font-family:'Noto Sans',sans-serif;letter-spacing:1px;">{{ versionLabel }}</span></div>
+        </div>
+        <span style="color:var(--muted);font-size:13px;white-space:nowrap;">{{ pickerChevron }} Change</span>
+      </button>
+      <sc-if value="{{ pickerOpen }}" hint-placeholder-val="{{ false }}">
+        <div style="padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;border-top:1px solid var(--line);">
+          <div style="display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;align-self:flex-start;">
+            <sc-for list="{{ versions }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.onClick }}" style="{{ v.style }}">{{ v.label }}</button></sc-for>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <select value="{{ book }}" onChange="{{ onBook }}" style="{{ selectStyle }}"><sc-for list="{{ books }}" as="b" hint-placeholder-count="12"><option value="{{ b.name }}">{{ b.name }}</option></sc-for></select>
+            <sc-if value="{{ showChapter }}" hint-placeholder-val="{{ true }}"><select value="{{ chapter }}" onChange="{{ onChapter }}" style="{{ chapterSelectStyle }}"><sc-for list="{{ chapterList }}" as="c" hint-placeholder-count="10"><option value="{{ c }}">{{ c }}</option></sc-for></select></sc-if>
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <sc-if value="{{ versesKnown }}" hint-placeholder-val="{{ true }}">
+              <label style="font-size:14px;color:var(--muted);display:inline-flex;align-items:center;gap:7px;">Verses<select value="{{ vStart }}" onChange="{{ onVStart }}" style="{{ verseSelectStyle }}"><sc-for list="{{ verseOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select>to<select value="{{ vEndValue }}" onChange="{{ onVEnd }}" style="{{ verseSelectStyle }}"><sc-for list="{{ verseOptions }}" as="n" hint-placeholder-count="6"><option value="{{ n }}">{{ n }}</option></sc-for></select></label>
+              <button onClick="{{ setWhole }}" style="{{ wholeBtn }}">{{ wholeLabel }}</button>
+            </sc-if>
+            <sc-if value="{{ versesUnknown }}" hint-placeholder-val="{{ false }}">
+              <span style="font-size:13px;color:var(--muted);">Counting verses… the whole chapter will load.</span>
+            </sc-if>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+            <button onClick="{{ load }}" style="{{ loadBtn }}">{{ loadLabel }}</button>
+            <span style="font-size:13px;color:var(--muted);">Up to one chapter at a time.</span>
+          </div>
+        </div>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ hasError }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--surface);border:1px solid var(--bad);border-radius:12px;padding:12px 14px;">
+        <span style="color:var(--bad);font-size:14px;flex:1;min-width:160px;line-height:1.45;">{{ error }}</span>
+        <sc-if value="{{ offerKjv }}" hint-placeholder-val="{{ false }}"><button onClick="{{ switchToKjv }}" style="{{ ghostBtn }}">Use King James</button></sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.3px;">Choose a way to practice</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(225px,1fr));gap:12px;">
+          <button onClick="{{ startHide }}" style="display:flex;flex-direction:column;gap:9px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;color:var(--text);transition:border-color .15s,transform .15s;" style-hover="border-color:var(--accent);transform:translateY(-2px);">
+            <div style="display:flex;align-items:center;gap:10px;width:100%;">
+              <span style="width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-family:'Gentium Book Plus',serif;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;">H</span>
+              <span style="font-weight:700;font-size:16px;flex:1;">Hide &amp; reveal</span>
+              <span style="font-size:11px;color:var(--muted);letter-spacing:.3px;">Gentle</span>
+            </div>
+            <span style="font-size:13px;color:var(--muted);line-height:1.5;">Read it, hide it, recite it — tap any blank to peek when you’re stuck.</span>
+          </button>
+          <button onClick="{{ startFill }}" style="display:flex;flex-direction:column;gap:9px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;color:var(--text);transition:border-color .15s,transform .15s;" style-hover="border-color:var(--accent);transform:translateY(-2px);">
+            <div style="display:flex;align-items:center;gap:10px;width:100%;">
+              <span style="width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-family:'Gentium Book Plus',serif;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;">F</span>
+              <span style="font-weight:700;font-size:16px;flex:1;">Fill blanks</span>
+              <span style="font-size:11px;color:var(--muted);letter-spacing:.3px;">Medium</span>
+            </div>
+            <span style="font-size:13px;color:var(--muted);line-height:1.5;">Some words disappear. Type them back in — adjust how many vanish.</span>
+          </button>
+          <button onClick="{{ startBank }}" style="display:flex;flex-direction:column;gap:9px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;color:var(--text);transition:border-color .15s,transform .15s;" style-hover="border-color:var(--accent);transform:translateY(-2px);">
+            <div style="display:flex;align-items:center;gap:10px;width:100%;">
+              <span style="width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-family:'Gentium Book Plus',serif;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;">W</span>
+              <span style="font-weight:700;font-size:16px;flex:1;">Word bank</span>
+              <span style="font-size:11px;color:var(--muted);letter-spacing:.3px;">Medium</span>
+            </div>
+            <span style="font-size:13px;color:var(--muted);line-height:1.5;">The words are jumbled below. Tap them in order to rebuild the text.</span>
+          </button>
+          <button onClick="{{ startType }}" style="display:flex;flex-direction:column;gap:9px;align-items:flex-start;text-align:left;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;cursor:pointer;color:var(--text);transition:border-color .15s,transform .15s;" style-hover="border-color:var(--accent);transform:translateY(-2px);">
+            <div style="display:flex;align-items:center;gap:10px;width:100%;">
+              <span style="width:34px;height:34px;border-radius:10px;background:var(--accent-soft);color:var(--accent);font-family:'Gentium Book Plus',serif;font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;">T</span>
+              <span style="font-weight:700;font-size:16px;flex:1;">Type it</span>
+              <span style="font-size:11px;color:var(--muted);letter-spacing:.3px;">Hardest</span>
+            </div>
+            <span style="font-size:13px;color:var(--muted);line-height:1.5;">Write the whole passage from memory, one word at a time.</span>
+          </button>
+        </div>
+        <div style="font-size:13px;color:var(--muted);padding-top:2px;">{{ homeSummary }}</div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
+    <div style="display:flex;flex-direction:column;gap:16px;">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;">
+      <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+    </div>
+
+    <sc-if value="{{ hasPassage }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+        <h2 style="margin:0;font-family:'Gentium Book Plus',serif;font-size:25px;font-weight:700;">{{ reference }}</h2>
+        <span style="flex:1;"></span>
+        <span style="font-size:13px;color:var(--muted);">{{ modeHint }}</span>
+      </div>
+    </sc-if>
+
+    <div style="background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3.4vw,32px);min-height:200px;">
+      {{ practice }}
+    </div>
+
+    <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
+        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+        <span style="flex:1;"></span>
+        <span style="font-size:13px;color:var(--muted);">Tap a blank to peek.</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+        <label style="font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:8px;">Difficulty<input type="range" min="0.1" max="0.6" step="0.05" value="{{ blankPct }}" onChange="{{ onBlankPct }}" style="width:120px;" /></label>
+        <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+        <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+        <span style="flex:1;"></span>
+        <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isBank }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;min-height:42px;padding:12px;background:var(--surface2);border:1px solid var(--line);border-radius:12px;">
+          <sc-for list="{{ bankItems }}" as="b" hint-placeholder-count="8"><button onClick="{{ b.onClick }}" style="{{ bankBtn }}">{{ b.text }}</button></sc-for>
+          <sc-if value="{{ bankEmpty }}" hint-placeholder-val="{{ false }}"><span style="font-size:13px;color:var(--muted);padding:6px;">All words placed — tap a slot to undo.</span></sc-if>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+          <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+          <span style="flex:1;"></span>
+          <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input value="{{ typeInput }}" onChange="{{ onTypeChange }}" onKeyDown="{{ onTypeKey }}" placeholder="{{ typeHint }}" autoComplete="off" autoCapitalize="off" spellCheck="false" style="flex:1;min-width:200px;padding:12px 14px;border:1px solid var(--accent);border-radius:11px;background:var(--surface);color:var(--text);font-size:16px;outline:none;" />
+        <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
+        <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+        <button onClick="{{ revealAll }}" style="{{ ghostBtn }}">Reveal all</button>
+        <span style="font-size:13px;color:var(--muted);width:100%;">{{ typeProgress }}</span>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ hasPassage }}" hint-placeholder-val="{{ true }}">
+      <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;padding-top:12px;border-top:1px solid var(--line);">
+        <span style="font-size:13px;color:var(--muted);display:inline-flex;align-items:center;gap:6px;"><span style="width:7px;height:7px;border-radius:50%;background:{{ streakDot }};display:inline-block;"></span>{{ streakLabel }}</span>
+        <span style="font-size:13px;color:var(--muted);">{{ bestLabel }}</span>
+        <span style="flex:1;"></span>
+        <button onClick="{{ toggleLearned }}" style="{{ learnedBtn }}">{{ learnedLabel }}</button>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isEsv }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">
+        Scripture quotations are from the ESV® Bible, © 2001 by Crossway. Used by permission. All rights reserved.
+        <a href="https://www.esv.org" target="_blank" rel="noopener" style="color:var(--accent);">www.esv.org</a>
+        · <button onClick="{{ openCopyright }}" style="background:none;border:none;color:var(--accent);font:inherit;cursor:pointer;padding:0;text-decoration:underline;">Full notice</button>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isKjv }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:11px;color:var(--muted);padding-top:4px;">King James Version — public domain.</div>
+    </sc-if>
+    <sc-if value="{{ isTr }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">Greek New Testament · Tischendorf (8th critical edition, 1869–72) — public domain. Text served by <a href="https://bolls.life" target="_blank" rel="noopener" style="color:var(--accent);">bolls.life</a>.</div>
+    </sc-if>
+    </div>
+    </sc-if>
+
+  </main>
+
+  <sc-if value="{{ settingsOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeSettings }}" style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:40;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto;">
+      <div onClick="{{ stop }}" style="background:var(--surface);border:1px solid var(--line);border-radius:18px;max-width:460px;width:100%;margin-top:46px;padding:24px;display:flex;flex-direction:column;gap:22px;box-shadow:0 18px 50px rgba(0,0,0,.25);">
+        <div style="display:flex;align-items:center;">
+          <h3 style="margin:0;font-family:'Gentium Book Plus',serif;font-size:22px;flex:1;">Settings</h3>
+          <button onClick="{{ closeSettings }}" style="{{ ghostBtn }}">Done</button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-weight:600;font-size:14px;">ESV API token</div>
+          <input value="{{ esvToken }}" onChange="{{ onTokenChange }}" placeholder="Paste your token" type="password" autoComplete="off" spellCheck="false" style="padding:11px 13px;border:1px solid var(--line);border-radius:10px;background:var(--surface2);color:var(--text);font-size:14px;outline:none;" />
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">Stored only on this device. Free token at <a href="https://api.esv.org" target="_blank" rel="noopener" style="color:var(--accent);">api.esv.org</a>. {{ tokenState }}</div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-weight:600;font-size:14px;">Appearance</div>
+          <div style="display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;align-self:flex-start;">
+            <sc-for list="{{ themeOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="flex:1;">
+            <div style="font-weight:600;font-size:14px;">Daily reminder</div>
+            <div style="font-size:12px;color:var(--muted);line-height:1.5;">A nudge to practice when you open the app on a new day.</div>
+          </div>
+          <button onClick="{{ toggleReminder }}" style="{{ reminderBtn }}">{{ reminderLabel }}</button>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-weight:600;font-size:14px;">Cached Scripture</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">{{ cacheStatus }} ESV terms allow caching up to 500 verses; clearing also refreshes to the latest text next time.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button onClick="{{ clearCache }}" style="{{ ghostBtn }}">Clear cached Scripture</button>
+            <button onClick="{{ openCopyright }}" style="{{ ghostBtn }}">ESV copyright</button>
+          </div>
+        </div>
+
+        <sc-if value="{{ usageVisible }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:12px;">ESV requests today: {{ usageToday }} / 5,000</div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ copyrightOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeCopyright }}" style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:50;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto;">
+      <div onClick="{{ stop }}" style="background:var(--surface);border:1px solid var(--line);border-radius:18px;max-width:520px;width:100%;margin-top:46px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 18px 50px rgba(0,0,0,.25);">
+        <div style="display:flex;align-items:center;">
+          <h3 style="margin:0;font-family:'Gentium Book Plus',serif;font-size:22px;flex:1;">ESV copyright notice</h3>
+          <button onClick="{{ closeCopyright }}" style="{{ ghostBtn }}">Close</button>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®), © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission. All rights reserved. The ESV text may not be quoted in any publication made available to the public by a Creative Commons license. The ESV may not be translated into any other language.</p>
+        <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">Users may not copy or download more than 500 verses of the ESV Bible or more than one half of any book of the ESV Bible.</p>
+        <p style="margin:0;font-size:13px;color:var(--muted);">More at <a href="https://www.esv.org" target="_blank" rel="noopener" style="color:var(--accent);">www.esv.org</a>.</p>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
