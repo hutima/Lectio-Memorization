@@ -51,19 +51,39 @@
   };
   // A revealed word counts wrong even though it shows the right text, so exclude it.
   typeCorrect = (vi) => !this.state.typeReveal[vi] && this.norm(this.state.typeVals[vi]) === this.norm(this.state.passage.words[vi].text);
-  // Score the Test continuously so partial credit is captured. Blanks count as wrong,
-  // so the known % always reflects how much of the passage has actually been recalled.
-  // A long passage may never be fully filled — waiting for every word would mean no
-  // credit at all for the verses you do know — so we record as you go: the first scored
-  // keystroke counts as today's practice, and later keystrokes refine the score silently
-  // (no repeated streak/heatmap bumps). The score keeps climbing toward MASTERY as more
-  // words land, exactly as if you'd finished a shorter passage.
+  // Group every word index by the verse it belongs to ({ verse -> [vi, ...] }).
+  typeVerseGroups = () => { const p = this.state.passage; const g = {}; if (p) p.words.forEach((w) => { (g[w.v] = g[w.v] || []).push(w.vi); }); return g; };
+  // Score the Test continuously so partial credit is captured, but assess it PER VERSE.
+  // Blanks count as wrong, so a verse's score reflects how much of it you've recalled.
+  // Crucially, a verse is only reassessed when it's reattempted — i.e. something is
+  // typed (or revealed) inside it this test. Verses you leave untouched keep their
+  // previously stored score, so a partial retest of a long passage never wipes out the
+  // credit you already earned for the verses you're not retyping. The passage-level
+  // known % is the word-weighted average of the per-verse scores. The first scored
+  // keystroke counts as today's practice; later keystrokes refine silently (no repeated
+  // streak/heatmap bumps).
   checkTypeDone = () => {
     const p = this.state.passage; if (!p) return; const ws = this.typeWords(); if (!ws.length) return;
-    const filled = ws.filter((vi) => (this.state.typeVals[vi] || '').trim().length > 0).length;
-    if (!filled) return;
-    const correct = ws.filter((vi) => this.typeCorrect(vi)).length;
-    this.recordResult(correct / ws.length, { known: true, silent: this._typeScored });
+    const vals = this.state.typeVals, reveal = this.state.typeReveal;
+    if (!ws.some((vi) => (vals[vi] || '').trim().length > 0)) return;
+    const groups = this.typeVerseGroups();
+    const cur = this.state.progress[this.passageKey()] || {};
+    const prev = cur.verseKnown || {};
+    // Baseline for a verse never scored per-verse before: fall back to the passage's
+    // old whole-passage known % so upgrading from the previous (all-or-nothing) scoring
+    // doesn't drop credit on the first partial retest.
+    const base = cur.known != null ? cur.known : 0;
+    const verseKnown = {}; let total = 0, sum = 0;
+    Object.keys(groups).forEach((v) => {
+      const idxs = groups[v];
+      const touched = idxs.some((vi) => (vals[vi] || '').trim().length > 0 || reveal[vi]);
+      // Reattempted verse -> reassess (overwrite, even if lower). Otherwise keep its
+      // stored per-verse score, or the legacy baseline if it has none yet.
+      const score = touched ? idxs.filter((vi) => this.typeCorrect(vi)).length / idxs.length
+        : (prev[v] != null ? prev[v] : base);
+      verseKnown[v] = score; total += idxs.length; sum += score * idxs.length;
+    });
+    this.recordResult(total ? sum / total : 0, { known: true, silent: this._typeScored, verseKnown });
     this._typeScored = true;
   };
 

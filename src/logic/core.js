@@ -633,7 +633,10 @@
     cur.best = Math.max(cur.best, acc); cur.lastMode = this.state.mode;
     // "Test" mode is the yardstick for how much of the passage is known: store its
     // latest score as the passage's known level (a fresh test reflects current recall).
+    // Test also carries a per-verse breakdown so a partial retest only reassesses the
+    // verses actually typed into — untouched verses keep their stored score.
     if (opts.known) cur.known = acc;
+    if (opts.verseKnown) cur.verseKnown = opts.verseKnown;
     // A silent update is a live/partial refinement (Test mode scores as you type, so
     // partial credit on a long passage is captured even if you never fill every word).
     // It updates best/known but is NOT a fresh attempt and must not re-bump the
