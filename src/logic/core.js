@@ -328,6 +328,9 @@
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
     this._revealPrev = null;
+    // Reset the per-test "already counted as practice" flag so the next Test attempt
+    // bumps the streak/heatmap once, then refines its partial score silently.
+    this._typeScored = false;
     this.setState({
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
@@ -622,13 +625,18 @@
   recordResult = (acc, opts = {}) => {
     const key = this.passageKey(); if (!key) return;
     const prog = { ...this.state.progress }; const cur = prog[key] || { best: 0, learned: false, attempts: 0 };
-    cur.best = Math.max(cur.best, acc); cur.attempts++; cur.lastMode = this.state.mode;
+    cur.best = Math.max(cur.best, acc); cur.lastMode = this.state.mode;
     // "Test" mode is the yardstick for how much of the passage is known: store its
     // latest score as the passage's known level (a fresh test reflects current recall).
     if (opts.known) cur.known = acc;
+    // A silent update is a live/partial refinement (Test mode scores as you type, so
+    // partial credit on a long passage is captured even if you never fill every word).
+    // It updates best/known but is NOT a fresh attempt and must not re-bump the
+    // streak/heatmap — only the first scored keystroke of a test counts as practice.
+    if (!opts.silent) cur.attempts++;
     prog[key] = cur;
     this.setState({ progress: prog }); try { localStorage.setItem('lectio.progress', JSON.stringify(prog)); } catch (e) {}
-    this.markPracticed();
+    if (!opts.silent) this.markPracticed();
   };
   markPracticed = () => {
     const today = new Date().toISOString().slice(0, 10);

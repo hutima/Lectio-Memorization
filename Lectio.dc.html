@@ -805,6 +805,9 @@ class Component extends DCLogic {
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
     this._revealPrev = null;
+    // Reset the per-test "already counted as practice" flag so the next Test attempt
+    // bumps the streak/heatmap once, then refines its partial score silently.
+    this._typeScored = false;
     this.setState({
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
@@ -1099,13 +1102,18 @@ class Component extends DCLogic {
   recordResult = (acc, opts = {}) => {
     const key = this.passageKey(); if (!key) return;
     const prog = { ...this.state.progress }; const cur = prog[key] || { best: 0, learned: false, attempts: 0 };
-    cur.best = Math.max(cur.best, acc); cur.attempts++; cur.lastMode = this.state.mode;
+    cur.best = Math.max(cur.best, acc); cur.lastMode = this.state.mode;
     // "Test" mode is the yardstick for how much of the passage is known: store its
     // latest score as the passage's known level (a fresh test reflects current recall).
     if (opts.known) cur.known = acc;
+    // A silent update is a live/partial refinement (Test mode scores as you type, so
+    // partial credit on a long passage is captured even if you never fill every word).
+    // It updates best/known but is NOT a fresh attempt and must not re-bump the
+    // streak/heatmap — only the first scored keystroke of a test counts as practice.
+    if (!opts.silent) cur.attempts++;
     prog[key] = cur;
     this.setState({ progress: prog }); try { localStorage.setItem('lectio.progress', JSON.stringify(prog)); } catch (e) {}
-    this.markPracticed();
+    if (!opts.silent) this.markPracticed();
   };
   markPracticed = () => {
     const today = new Date().toISOString().slice(0, 10);
@@ -1545,11 +1553,20 @@ class Component extends DCLogic {
   };
   // A revealed word counts wrong even though it shows the right text, so exclude it.
   typeCorrect = (vi) => !this.state.typeReveal[vi] && this.norm(this.state.typeVals[vi]) === this.norm(this.state.passage.words[vi].text);
+  // Score the Test continuously so partial credit is captured. Blanks count as wrong,
+  // so the known % always reflects how much of the passage has actually been recalled.
+  // A long passage may never be fully filled — waiting for every word would mean no
+  // credit at all for the verses you do know — so we record as you go: the first scored
+  // keystroke counts as today's practice, and later keystrokes refine the score silently
+  // (no repeated streak/heatmap bumps). The score keeps climbing toward MASTERY as more
+  // words land, exactly as if you'd finished a shorter passage.
   checkTypeDone = () => {
-    const p = this.state.passage; if (!p) return; const ws = this.typeWords();
-    if (!ws.every((vi) => (this.state.typeVals[vi] || '').trim().length > 0)) return;
+    const p = this.state.passage; if (!p) return; const ws = this.typeWords(); if (!ws.length) return;
+    const filled = ws.filter((vi) => (this.state.typeVals[vi] || '').trim().length > 0).length;
+    if (!filled) return;
     const correct = ws.filter((vi) => this.typeCorrect(vi)).length;
-    this.recordResult(correct / ws.length, { known: true });
+    this.recordResult(correct / ws.length, { known: true, silent: this._typeScored });
+    this._typeScored = true;
   };
 
   renderWord_type = (s, key) => {
@@ -1575,8 +1592,10 @@ class Component extends DCLogic {
     if (p && ws.length) {
       const total = ws.length;
       const filled = ws.filter((vi) => (st.typeVals[vi] || '').trim().length > 0).length;
-      if (filled < total) typeStatus = filled + ' / ' + total + ' words';
-      else { const correct = ws.filter((vi) => this.typeCorrect(vi)).length; typeStatus = correct + ' / ' + total + ' correct'; }
+      const correct = ws.filter((vi) => this.typeCorrect(vi)).length;
+      // Always show the running score (blanks count as wrong) so partial credit is
+      // visible on long passages; while words remain, also note how many are filled.
+      typeStatus = filled < total ? (correct + ' / ' + total + ' correct · ' + filled + ' filled') : (correct + ' / ' + total + ' correct');
     }
     return { isType: st.mode === 'type', typeStatus, revealTypeWord: this.revealTypeWord };
   };

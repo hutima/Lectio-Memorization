@@ -51,11 +51,20 @@
   };
   // A revealed word counts wrong even though it shows the right text, so exclude it.
   typeCorrect = (vi) => !this.state.typeReveal[vi] && this.norm(this.state.typeVals[vi]) === this.norm(this.state.passage.words[vi].text);
+  // Score the Test continuously so partial credit is captured. Blanks count as wrong,
+  // so the known % always reflects how much of the passage has actually been recalled.
+  // A long passage may never be fully filled — waiting for every word would mean no
+  // credit at all for the verses you do know — so we record as you go: the first scored
+  // keystroke counts as today's practice, and later keystrokes refine the score silently
+  // (no repeated streak/heatmap bumps). The score keeps climbing toward MASTERY as more
+  // words land, exactly as if you'd finished a shorter passage.
   checkTypeDone = () => {
-    const p = this.state.passage; if (!p) return; const ws = this.typeWords();
-    if (!ws.every((vi) => (this.state.typeVals[vi] || '').trim().length > 0)) return;
+    const p = this.state.passage; if (!p) return; const ws = this.typeWords(); if (!ws.length) return;
+    const filled = ws.filter((vi) => (this.state.typeVals[vi] || '').trim().length > 0).length;
+    if (!filled) return;
     const correct = ws.filter((vi) => this.typeCorrect(vi)).length;
-    this.recordResult(correct / ws.length, { known: true });
+    this.recordResult(correct / ws.length, { known: true, silent: this._typeScored });
+    this._typeScored = true;
   };
 
   renderWord_type = (s, key) => {
@@ -81,8 +90,10 @@
     if (p && ws.length) {
       const total = ws.length;
       const filled = ws.filter((vi) => (st.typeVals[vi] || '').trim().length > 0).length;
-      if (filled < total) typeStatus = filled + ' / ' + total + ' words';
-      else { const correct = ws.filter((vi) => this.typeCorrect(vi)).length; typeStatus = correct + ' / ' + total + ' correct'; }
+      const correct = ws.filter((vi) => this.typeCorrect(vi)).length;
+      // Always show the running score (blanks count as wrong) so partial credit is
+      // visible on long passages; while words remain, also note how many are filled.
+      typeStatus = filled < total ? (correct + ' / ' + total + ' correct · ' + filled + ' filled') : (correct + ' / ' + total + ' correct');
     }
     return { isType: st.mode === 'type', typeStatus, revealTypeWord: this.revealTypeWord };
   };
