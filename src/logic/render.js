@@ -47,6 +47,13 @@
       if (this.state.showVerseNums && v.num != null) out.push(h('sup', { key: 'vn' + vi, style: { fontSize: '0.6em', color: 'var(--muted)', fontWeight: 700, marginRight: '3px', fontFamily: "'Noto Sans',sans-serif" } }, v.num));
       v.segs.forEach((s, si) => out.push(this.renderWord(s, vi + '_' + si)));
     });
+    // The appended reference ("— Psalm 23:1 to 5") sits on its own line and is practiced
+    // like the rest — its words flow through renderWord, so they hide/blank/type per mode.
+    if (p.refSegs) {
+      const refKids = [h('span', { key: 'rd', style: { color: 'var(--muted)' } }, '— ')];
+      p.refSegs.forEach((s, si) => refKids.push(this.renderWord(s, 'ref_' + si)));
+      out.push(h('div', { key: 'refline', style: { marginTop: '0.9em' } }, refKids));
+    }
     return h('div', { style: textStyle }, out);
   };
 
@@ -87,22 +94,24 @@
     const showEase = !!p && (st.mode === 'hidden' || st.mode === 'bank');
     const easeLabel = this.allBlank() ? 'Every word blank' : Math.round(st.blankPct * 100) + '% blank';
 
-    // Control-bar placement. The typing modes (fill / type) put the bar in the
-    // sticky header region at the TOP: on iOS a bottom-pinned bar was wedged away
-    // from the keyboard by Safari's bottom URL bar, so anchoring it up top keeps it
-    // stable while typing. Word bank has no text entry — no keyboard to dodge — so
-    // its bar stays pinned at the BOTTOM where it's easiest to reach.
+    // Control-bar placement. The typing modes (fill / type) keep their bar in the
+    // sticky header at the TOP: on iOS a bottom-pinned bar gets wedged away from the
+    // keyboard by Safari's bottom URL bar, so anchoring it up top keeps it stable while
+    // typing. The no-typing modes (hide, word bank) pin their bar to the BOTTOM, where
+    // it's easiest to reach with either thumb.
     const showFooter = st.view === 'practice' && !!p;
-    const showTopBar = showFooter && st.mode !== 'bank';
-    const showBankBar = showFooter && st.mode === 'bank';
+    const showTopBar = showFooter && (st.mode === 'hidden' || st.mode === 'type');
+    const showBottomBar = showFooter && (st.mode === 'bank' || st.mode === 'hide');
     const footerStyle = { borderTop: '1px solid var(--line)', padding: '8px 0 4px' };
     const bankBarStyle = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 30, background: 'var(--bg)', borderTop: '1px solid var(--line)', boxShadow: '0 -6px 20px rgba(0,0,0,.07)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' };
     const footerInner = { width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '10px' };
-    // Reserve bottom room so the passage tail can scroll clear: enough to lift the
-    // last blanks above the keyboard (top-bar modes), or to clear the bottom-pinned
-    // word-bank bar (whose tray can reach ~34vh). A CSS string — it's interpolated
-    // into the practice wrapper's style attribute.
-    const practicePad = 'padding-bottom:' + (st.mode === 'bank' ? 'calc(48vh + env(safe-area-inset-bottom))' : 'calc(40vh + env(safe-area-inset-bottom))');
+    // Hide mode's main control spans the full width so it's reachable with either hand.
+    const fullPrimaryBtn = { ...primaryBtn, width: '100%', padding: '13px 16px', fontSize: '15px', borderRadius: '12px' };
+    // Reserve bottom room so the passage tail can scroll clear: enough to lift the last
+    // blanks above the keyboard (top-bar modes), to clear the bottom-pinned word-bank
+    // tray (~34vh), or to clear the shorter hide bar. A CSS string — interpolated into
+    // the practice wrapper's style attribute.
+    const practicePad = 'padding-bottom:' + (st.mode === 'bank' ? 'calc(48vh + env(safe-area-inset-bottom))' : st.mode === 'hide' ? 'calc(150px + env(safe-area-inset-bottom))' : 'calc(40vh + env(safe-area-inset-bottom))');
     const navBtn = (disabled) => ({ padding: '8px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: disabled ? 'var(--muted)' : 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, touchAction: 'manipulation' });
 
     const base = {
@@ -161,8 +170,10 @@
       // errors
       hasError: !!st.error, error: st.error, offerKjv: st.offerKjv, switchToKjv: this.switchToKjv,
 
-      // tabs
-      modeTabs: [['hide', 'Hide & reveal'], ['hidden', 'Fill blanks'], ['bank', 'Word bank'], ['type', 'Test']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.tab(id === st.mode) })),
+      // mode selector: a full-width 3-way segmented toggle (no typing → no keyboard
+      // concerns) plus a distinct, full-width "Test" button broken out below it.
+      modeTabs: [['hide', 'Hide & reveal'], ['bank', 'Word bank'], ['hidden', 'Fill blanks']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.modeSeg(id === st.mode) })),
+      selectTest: () => this.setMode('type'), testTabStyle: this.testTab(st.mode === 'type'),
 
       // passage
       hasPassage: !!p, reference: p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef()), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
@@ -172,8 +183,9 @@
       // ease slider (top of passage)
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
 
-      // control bars (top for typing modes, bottom for word bank)
-      showFooter, showTopBar, showBankBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,
+      // control bars (top for typing modes, bottom for hide + word bank)
+      showFooter, showTopBar, showBottomBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,
+      hideBtnStyle: fullPrimaryBtn,
       revealAll: this.revealAll, toggleRevealAll: this.toggleRevealAll,
       revealAllLabel: st.revealAllNow ? 'Hide again' : 'Reveal all',
       resetMode: this.resetMode,
@@ -209,8 +221,9 @@
       esvModalOpen: st.esvModalOpen, closeEsvModal: this.closeEsvModal, switchToKjvFromModal: this.switchToKjvFromModal,
       esvTokenSaved: !!st.esvToken.trim(),
 
-      // app update prompt
+      // app update prompt + manual "check for updates" (Settings)
       updateReady: st.updateReady, applyUpdate: this.applyUpdate, dismissUpdate: this.dismissUpdate,
+      checkForUpdates: this.checkForUpdates, updateMsg: st.updateMsg,
     };
 
     // Per-mode footer values, computed in their own files.

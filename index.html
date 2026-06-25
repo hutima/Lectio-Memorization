@@ -20,11 +20,11 @@
 <style>
 html{
   --bg:#f1ece0; --surface:#fbf8f1; --surface2:#f4eee2; --text:#2c281f; --muted:#8c8472;
-  --line:#e2dac9; --accent:#3b6e4f; --accent-soft:rgba(59,110,79,.13); --good:#3b6e4f; --bad:#b4503e;
+  --line:#e2dac9; --accent:#3b6e4f; --accent-soft:rgba(59,110,79,.13); --good:#3b6e4f; --bad:#b4503e; --test:#42598c; --test-soft:rgba(66,89,140,.12);
 }
 html[data-theme="dark"]{
   --bg:#1b1916; --surface:#24211c; --surface2:#2c2823; --text:#ece6d8; --muted:#9c9485;
-  --line:#3a352d; --accent:#73ad8b; --accent-soft:rgba(115,173,139,.18); --good:#73ad8b; --bad:#cf7a68;
+  --line:#3a352d; --accent:#73ad8b; --accent-soft:rgba(115,173,139,.18); --good:#73ad8b; --bad:#cf7a68; --test:#8ba0d6; --test-soft:rgba(139,160,214,.2);
 }
 html,body{margin:0;background:var(--bg);color:var(--text);font-family:'Noto Sans',system-ui,sans-serif;-webkit-text-size-adjust:100%;}
 *{box-sizing:border-box;}
@@ -57,14 +57,6 @@ input[type=range]{accent-color:var(--accent);}
     <sc-if value="{{ showTopBar }}" hint-placeholder-val="{{ false }}">
       <div style="{{ footerStyle }}">
         <div style="{{ footerInner }}">
-
-          <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button onClick="{{ toggleHideAll }}" style="{{ primaryBtn }}">{{ hideToggleLabel }}</button>
-              <span style="flex:1;"></span>
-              <span style="font-size:13px;color:var(--muted);">Tap a word to peek.</span>
-            </div>
-          </sc-if>
 
           <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
             <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -104,9 +96,11 @@ input[type=range]{accent-color:var(--accent);}
     </sc-if>
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
-      <div style="display:flex;align-items:center;gap:10px;padding-top:4px;">
-        <button onClick="{{ goHome }}" style="{{ ghostBtn }}">‹ All modes</button>
-        <span style="font-size:13px;color:var(--muted);">{{ currentModeName }}</span>
+      <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px;">
+        <div style="display:flex;gap:3px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;">
+          <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
+        </div>
+        <button onClick="{{ selectTest }}" style="{{ testTabStyle }}">Test</button>
       </div>
     </sc-if>
 
@@ -224,14 +218,8 @@ input[type=range]{accent-color:var(--accent);}
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
     <div style="display:flex;flex-direction:column;gap:16px;{{ practicePad }};">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;">
-      <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="4"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
-    </div>
-
     <sc-if value="{{ hasPassage }}" hint-placeholder-val="{{ true }}">
-      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
-        <h2 style="margin:0;font-family:'Gentium Book Plus',serif;font-size:25px;font-weight:700;">{{ reference }}</h2>
-        <span style="flex:1;"></span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-size:13px;color:var(--muted);">{{ modeHint }}</span>
       </div>
     </sc-if>
@@ -280,9 +268,19 @@ input[type=range]{accent-color:var(--accent);}
 
   </main>
 
-  <sc-if value="{{ showBankBar }}" hint-placeholder-val="{{ false }}">
+  <sc-if value="{{ showBottomBar }}" hint-placeholder-val="{{ false }}">
     <div style="{{ bankBarStyle }}">
       <div style="{{ footerInner }}">
+        <sc-if value="{{ isHide }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <button onClick="{{ toggleHideAll }}" style="{{ hideBtnStyle }}">{{ hideToggleLabel }}</button>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+              <sc-if value="{{ hasRevealed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearRevealed }}" style="{{ ghostBtn }}">Clear peeks</button></sc-if>
+              <span style="flex:1;"></span>
+              <span style="font-size:13px;color:var(--muted);">Tap a word to peek or hide it.</span>
+            </div>
+          </div>
+        </sc-if>
         <sc-if value="{{ bankMc }}" hint-placeholder-val="{{ true }}">
           <div style="display:flex;flex-direction:column;gap:10px;">
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
@@ -372,6 +370,15 @@ input[type=range]{accent-color:var(--accent);}
           <div style="display:flex;gap:8px;flex-wrap:wrap;">
             <button onClick="{{ clearCache }}" style="{{ ghostBtn }}">Clear cached Scripture</button>
             <button onClick="{{ openCopyright }}" style="{{ ghostBtn }}">ESV copyright</button>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-weight:600;font-size:14px;">App updates</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">Lectio updates in the background and asks before refreshing. You can also check right now.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ checkForUpdates }}" style="{{ ghostBtn }}">Check for updates</button>
+            <span style="font-size:12px;color:var(--muted);">{{ updateMsg }}</span>
           </div>
         </div>
 
@@ -477,7 +484,7 @@ class Component extends DCLogic {
     typeVals: {}, typeReveal: {}, typeActive: null,
     progress: {}, streak: { count: 0, last: null },
     cacheCount: 0, usageToday: 0,
-    updateReady: false,
+    updateReady: false, updateMsg: '',
     kbInset: 0,
   };
 
@@ -564,6 +571,7 @@ class Component extends DCLogic {
     if (this._mm) this._mm.removeEventListener('change', this._onMM);
     if (this._onVisible) document.removeEventListener('visibilitychange', this._onVisible);
     if (this._vv && this._onVV) { this._vv.removeEventListener('resize', this._onVV); this._vv.removeEventListener('scroll', this._onVV); }
+    if (this._updTimer) clearInterval(this._updTimer);
   }
 
   // ---------- app updates (service worker) ----------
@@ -579,6 +587,9 @@ class Component extends DCLogic {
     navigator.serviceWorker.register('sw.js').then((reg) => {
       if (!reg) return;
       this._swReg = reg;
+      // Poll for a fresh build periodically — a long-lived foreground PWA session may
+      // otherwise sit on stale code; the focus + mode-switch checks cover the rest.
+      this._updTimer = setInterval(() => this.runUpdateCheck(false), 1800000);
       // An update could already be waiting from a previous visit.
       if (reg.waiting && navigator.serviceWorker.controller) this.setState({ updateReady: true });
       reg.addEventListener('updatefound', () => {
@@ -599,6 +610,19 @@ class Component extends DCLogic {
     else { window.location.reload(); }
   };
   dismissUpdate = () => this.setState({ updateReady: false });
+  // Manual / background "check for updates": ping the worker for a fresh build. A new
+  // build installs and trips the updatefound listener above (which shows the refresh
+  // modal); the manual path also reports the outcome in Settings.
+  runUpdateCheck = (manual) => {
+    const reg = this._swReg;
+    if (!('serviceWorker' in navigator) || !reg) { if (manual) this.setState({ updateMsg: 'Updates aren’t available here.' }); return; }
+    if (manual) this.setState({ updateMsg: 'Checking…' });
+    Promise.resolve().then(() => reg.update()).then(() => {
+      if (!manual) return;
+      this.setState({ updateMsg: (reg.installing || reg.waiting) ? 'A new version is downloading — you’ll be prompted to refresh.' : 'You’re on the latest version.' });
+    }).catch(() => { if (manual) this.setState({ updateMsg: 'Couldn’t check just now — try again later.' }); });
+  };
+  checkForUpdates = () => this.runUpdateCheck(true);
 
   // ---------- theme ----------
   applyTheme = (theme) => {
@@ -641,6 +665,11 @@ class Component extends DCLogic {
     } catch (e) { return null; }
   };
   posOf = (tags) => { if (!tags) return null; for (const t of tags) if (t === 'n' || t === 'v' || t === 'adj' || t === 'adv') return t; return null; };
+  // Datamuse frequency tag ("f:NN.NN" — occurrences per million words). Word-bank
+  // distractors below this floor are dropped so we don't offer junk or archaic forms
+  // ("elr", "wottest") that the reader would never mistake for the answer.
+  MIN_OPT_FREQ = 1;
+  freqOf = (tags) => { if (!tags) return 0; for (const t of tags) if (t.indexOf('f:') === 0) return parseFloat(t.slice(2)) || 0; return 0; };
   matchCase = (sample, word) => /^[A-Z]/.test(sample || '') ? word.charAt(0).toUpperCase() + word.slice(1) : word;
 
   // Curated common-word pools grouped by part of speech, so word-bank distractors
@@ -692,13 +721,23 @@ class Component extends DCLogic {
   // opts carries non-Scripture metadata (kind/attribution/title) used for layout +
   // the copyright line; it is absent (→ nulls) for ordinary Bible passages.
   buildPassage = (reference, version, verses, opts = {}) => {
+    reference = this.fixBookName(reference);
     let vi = 0; const words = [];
     const vs = verses.map((v, vIdx) => {
       const segs = this.splitSegs((v.text || '').replace(/\s+/g, ' ').trim());
       segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vIdx }); vi++; } });
       return { num: v.num, head: v.head || null, segs };
     });
-    return { reference, version, verses: vs, words, kind: opts.kind || null, attribution: opts.attribution || null, title: opts.title || null };
+    // Scripture passages append the reference as a final memory line ("Psalm 23:1 to 5")
+    // so it's practiced along with the text in every mode — its words join the flat
+    // `words` list, so they hide/blank/score like the rest. Creeds/catechisms carry their
+    // own attribution and pass opts.kind, so they skip this.
+    let refSegs = null;
+    if (!opts.kind && reference) {
+      refSegs = this.splitSegs(this.refToText(reference));
+      refSegs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vs.length }); vi++; } });
+    }
+    return { reference, version, verses: vs, words, refSegs, kind: opts.kind || null, attribution: opts.attribution || null, title: opts.title || null };
   };
   parseEsv = (text) => {
     text = (text || '').replace(/\r/g, '');
@@ -818,6 +857,11 @@ class Component extends DCLogic {
       }
     } catch (e) {}
   };
+  // The book list keeps the canonical plural "Psalms"; a single psalm reads "Psalm 23".
+  fixBookName = (ref) => (ref || '').replace(/\bPsalms\b/g, 'Psalm');
+  // Spoken-style reference for the appended memory line: "Psalm 23:1-5" → "Psalm 23:1 to 5"
+  // (a whole chapter stays "Psalm 23" — buildRef omits the verse range there).
+  refToText = (ref) => this.fixBookName(ref).replace(/(\d)\s*[–—-]\s*(\d)/, '$1 to $2');
   buildRef = () => {
     const meta = this.bookMeta(this.state.book); const single = meta.chapters === 1; const ch = this.state.chapter;
     const count = this.curVerseCount();
@@ -825,10 +869,10 @@ class Component extends DCLogic {
     const eRaw = (this.state.vEnd || '').trim();
     const e = eRaw ? (parseInt(eRaw, 10) || s) : (count || null);
     const whole = s <= 1 && (e === null || (count && e >= count));
-    if (whole) return single ? meta.name : meta.name + ' ' + ch;
-    const ee = e === null ? s : Math.max(s, e);
-    const range = ee !== s ? s + '-' + ee : '' + s;
-    return single ? meta.name + ' ' + range : meta.name + ' ' + ch + ':' + range;
+    let out;
+    if (whole) out = single ? meta.name : meta.name + ' ' + ch;
+    else { const ee = e === null ? s : Math.max(s, e); const range = ee !== s ? s + '-' + ee : '' + s; out = single ? meta.name + ' ' + range : meta.name + ' ' + ch + ':' + range; }
+    return this.fixBookName(out);
   };
   isWholeSel = () => { const count = this.curVerseCount(); const s = parseInt(this.state.vStart || '1', 10) || 1; const eRaw = (this.state.vEnd || '').trim(); return s <= 1 && (!eRaw || (count && parseInt(eRaw, 10) >= count)); };
   persistSel = () => { try { localStorage.setItem('lectio.sel', JSON.stringify({ book: this.state.book, chapter: this.state.chapter, vStart: this.state.vStart, vEnd: this.state.vEnd })); } catch (e) {} };
@@ -993,9 +1037,9 @@ class Component extends DCLogic {
   };
 
   // ---------- mode navigation ----------
-  setMode = (m) => this.setState({ mode: m }, () => { if (m === 'bank' && !this.allBlank()) this.ensureOptions(); });
+  setMode = (m) => { this.runUpdateCheck(false); this.setState({ mode: m }, () => { if (m === 'bank' && !this.allBlank()) this.ensureOptions(); }); };
   goHome = () => this.setState({ view: 'home' });
-  startMode = (m) => { const p = this.state.passage; this.setState({ mode: m, view: 'practice' }, () => { if (p) this.initModes(p); }); };
+  startMode = (m) => { const p = this.state.passage; this.runUpdateCheck(false); this.setState({ mode: m, view: 'practice' }, () => { if (p) this.initModes(p); }); };
   startHide = () => this.startMode('hide');
   startFill = () => this.startMode('hidden');
   startBank = () => this.startMode('bank');
@@ -1043,7 +1087,7 @@ class Component extends DCLogic {
   };
 
   // ---------- settings ----------
-  openSettings = () => this.setState({ settingsOpen: true });
+  openSettings = () => this.setState({ settingsOpen: true, updateMsg: '' });
   closeSettings = () => this.setState({ settingsOpen: false });
   openCopyright = () => this.setState({ copyrightOpen: true });
   closeCopyright = () => this.setState({ copyrightOpen: false });
@@ -1069,6 +1113,11 @@ class Component extends DCLogic {
   seg = (active) => ({ padding: '7px 14px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '14px', fontWeight: 600, background: active ? 'var(--accent)' : 'transparent', color: active ? '#fbf8f1' : 'var(--muted)' });
   tab = (active) => ({ padding: '9px 15px', borderRadius: '10px', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line)'), cursor: 'pointer', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', background: active ? 'var(--accent-soft)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--text)' });
   toggleBtn = (active) => ({ padding: '9px 14px', borderRadius: '10px', border: '1px solid ' + (active ? 'var(--accent)' : 'var(--line)'), background: active ? 'var(--accent-soft)' : 'var(--surface)', color: active ? 'var(--accent)' : 'var(--muted)', fontSize: '14px', fontWeight: 600, whiteSpace: 'nowrap', cursor: 'pointer' });
+  // Practice-mode selector: a full-width 3-way segmented control (modeSeg) for the
+  // no-typing modes, plus a distinct, full-width "Test" button (testTab) for the graded
+  // mode. modeSeg flexes so the three segments share the row evenly on phone or desktop.
+  modeSeg = (active) => ({ flex: 1, minWidth: 0, padding: '9px 8px', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: 'clamp(12px,3.1vw,14px)', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', background: active ? 'var(--accent)' : 'transparent', color: active ? '#fbf8f1' : 'var(--muted)', touchAction: 'manipulation' });
+  testTab = (active) => ({ width: '100%', padding: '12px 16px', borderRadius: '12px', border: '1px solid var(--test)', cursor: 'pointer', fontSize: '15px', fontWeight: 700, letterSpacing: '.3px', whiteSpace: 'nowrap', background: active ? 'var(--test)' : 'var(--test-soft)', color: active ? '#fbf8f1' : 'var(--test)', touchAction: 'manipulation' });
 
   // ============================================================================
   // mode-hide.js — "Hide & reveal" practice mode (class-body fragment; see core.js).
@@ -1077,9 +1126,14 @@ class Component extends DCLogic {
   // ============================================================================
 
   // Hiding the passage marks the day practiced (this used to ride on the removed
-  // "Reveal all" button); showing it again is a no-op for the streak.
-  toggleHideAll = () => { const on = !this.state.hideAll; this.setState({ hideAll: on, revealed: {} }); if (on) this.markPracticed(); };
-  revealWord = (vi) => this.setState({ revealed: { ...this.state.revealed, [vi]: true } });
+  // "Reveal all" button); showing it again is a no-op for the streak. Toggling
+  // hide/show keeps any peeked words revealed — the Clear button re-hides them, so
+  // you can reveal the whole passage to check yourself and step back into your peeks.
+  toggleHideAll = () => { const on = !this.state.hideAll; this.setState({ hideAll: on }); if (on) this.markPracticed(); };
+  // Tap a hidden word to peek; tap a revealed word to hide it again.
+  toggleWord = (vi) => { const r = { ...this.state.revealed }; if (r[vi]) delete r[vi]; else r[vi] = true; this.setState({ revealed: r }); };
+  // Re-hide every peeked word without leaving hide mode.
+  clearRevealed = () => this.setState({ revealed: {} });
   // "Reveal all" shows the whole passage. It snapshots the hide-mode state so the
   // user can step back into exactly where they were; the other modes keep their
   // progress (typed/placed words) untouched while revealed, so undo just hides
@@ -1098,8 +1152,8 @@ class Component extends DCLogic {
   renderWord_hide = (s, key) => {
     const h = React.createElement; const vi = s.vi, text = s.text; const st = this.state;
     if (!st.hideAll) return h('span', { key }, text);
-    if (st.revealed[vi]) return h('span', { key, style: { color: 'var(--accent)' } }, text);
-    return h('span', { key, onClick: this.tapGuard('rev' + vi, () => this.revealWord(vi)), title: 'tap to peek', style: { cursor: 'pointer', touchAction: 'manipulation', background: 'var(--accent-soft)', color: 'transparent', borderRadius: '4px', padding: '0 2px', boxShadow: 'inset 0 -1px 0 var(--line)' } }, text);
+    if (st.revealed[vi]) return h('span', { key, onClick: this.tapGuard('rev' + vi, () => this.toggleWord(vi)), title: 'tap to hide', style: { cursor: 'pointer', touchAction: 'manipulation', color: 'var(--accent)' } }, text);
+    return h('span', { key, onClick: this.tapGuard('rev' + vi, () => this.toggleWord(vi)), title: 'tap to peek', style: { cursor: 'pointer', touchAction: 'manipulation', background: 'var(--accent-soft)', color: 'transparent', borderRadius: '4px', padding: '0 2px', boxShadow: 'inset 0 -1px 0 var(--line)' } }, text);
   };
 
   // Footer control values for hide mode.
@@ -1107,6 +1161,8 @@ class Component extends DCLogic {
     isHide: this.state.mode === 'hide',
     toggleHideAll: this.toggleHideAll,
     hideToggleLabel: this.state.hideAll ? 'Show passage' : 'Hide passage',
+    clearRevealed: this.clearRevealed,
+    hasRevealed: Object.keys(this.state.revealed).length > 0,
   });
 
   // ============================================================================
@@ -1227,7 +1283,7 @@ class Component extends DCLogic {
     // hold the "Finding similar words…" spinner for long. Whatever hasn't answered
     // by then is dropped and buildOptions falls back to the offline POS dictionary.
     const [sim, posData] = await Promise.all([
-      this.fetchJson('https://api.datamuse.com/words?ml=' + q + '&md=p&max=30', 2000),
+      this.fetchJson('https://api.datamuse.com/words?ml=' + q + '&md=pf&max=30', 2000),
       this.fetchJson('https://api.datamuse.com/words?sp=' + q + '&md=p&max=1', 2000),
     ]);
     const targetPos = posData && posData[0] ? this.posOf(posData[0].tags) : null;
@@ -1235,23 +1291,27 @@ class Component extends DCLogic {
     this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: opts } });
   };
   // Assemble the option list: correct answer + up to 4 distractors, same part of
-  // speech first. Sources, in order: Datamuse "similar" words (when online), then
-  // the offline part-of-speech pool (so common words still get plausible, same-POS
-  // distractors with no network), then other passage words. Finally shuffled.
+  // speech first. Sources, in order: Datamuse "similar" words filtered to the same POS
+  // and a sane frequency (no junk/archaic forms), then the curated offline POS pool,
+  // then any leftover (cross-POS) Datamuse words, then other passage words — so a
+  // function word like "your" draws {thou, thy, his, our…} instead of "elr"/"per".
+  // Finally shuffled.
   buildOptions = (correct, sim, targetPos, seed) => {
     const cn = this.norm(correct); const seen = new Set([cn]); const cand = [];
     const push = (w) => { if (!w) return; const n = this.norm(w); if (!n || seen.has(n)) return; if (/\s/.test(w)) return; seen.add(n); cand.push(this.matchCase(correct, w)); };
     const pos = targetPos || this.localPos(correct);
+    const other = [];
     if (sim) {
-      const same = [], other = [];
-      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; const p = this.posOf(d.tags); (pos && p === pos ? same : other).push(d.word); });
-      same.forEach(push); other.forEach(push);
+      const same = [];
+      sim.forEach((d) => { if (!d.word || /[^a-zA-Z'\-]/.test(d.word)) return; if (this.freqOf(d.tags) < this.MIN_OPT_FREQ) return; const p = this.posOf(d.tags); (pos && p === pos ? same : other).push(d.word); });
+      same.forEach(push);
     }
     if (cand.length < 4) {
       const pool = this.posPool(pos).slice(); const r = this.rng(seed ^ 0x1f3b);
       for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1));[pool[i], pool[j]] = [pool[j], pool[i]]; }
       pool.forEach((w) => { if (cand.length < 4) push(w); });
     }
+    if (cand.length < 4) other.forEach((w) => { if (cand.length < 4) push(w); });
     if (cand.length < 4) {
       const words = (this.state.passage.words || []).map((w) => w.text);
       const r = this.rng(seed ^ 0x51ed); const sh = words.slice();
@@ -1517,6 +1577,13 @@ class Component extends DCLogic {
       if (this.state.showVerseNums && v.num != null) out.push(h('sup', { key: 'vn' + vi, style: { fontSize: '0.6em', color: 'var(--muted)', fontWeight: 700, marginRight: '3px', fontFamily: "'Noto Sans',sans-serif" } }, v.num));
       v.segs.forEach((s, si) => out.push(this.renderWord(s, vi + '_' + si)));
     });
+    // The appended reference ("— Psalm 23:1 to 5") sits on its own line and is practiced
+    // like the rest — its words flow through renderWord, so they hide/blank/type per mode.
+    if (p.refSegs) {
+      const refKids = [h('span', { key: 'rd', style: { color: 'var(--muted)' } }, '— ')];
+      p.refSegs.forEach((s, si) => refKids.push(this.renderWord(s, 'ref_' + si)));
+      out.push(h('div', { key: 'refline', style: { marginTop: '0.9em' } }, refKids));
+    }
     return h('div', { style: textStyle }, out);
   };
 
@@ -1557,22 +1624,24 @@ class Component extends DCLogic {
     const showEase = !!p && (st.mode === 'hidden' || st.mode === 'bank');
     const easeLabel = this.allBlank() ? 'Every word blank' : Math.round(st.blankPct * 100) + '% blank';
 
-    // Control-bar placement. The typing modes (fill / type) put the bar in the
-    // sticky header region at the TOP: on iOS a bottom-pinned bar was wedged away
-    // from the keyboard by Safari's bottom URL bar, so anchoring it up top keeps it
-    // stable while typing. Word bank has no text entry — no keyboard to dodge — so
-    // its bar stays pinned at the BOTTOM where it's easiest to reach.
+    // Control-bar placement. The typing modes (fill / type) keep their bar in the
+    // sticky header at the TOP: on iOS a bottom-pinned bar gets wedged away from the
+    // keyboard by Safari's bottom URL bar, so anchoring it up top keeps it stable while
+    // typing. The no-typing modes (hide, word bank) pin their bar to the BOTTOM, where
+    // it's easiest to reach with either thumb.
     const showFooter = st.view === 'practice' && !!p;
-    const showTopBar = showFooter && st.mode !== 'bank';
-    const showBankBar = showFooter && st.mode === 'bank';
+    const showTopBar = showFooter && (st.mode === 'hidden' || st.mode === 'type');
+    const showBottomBar = showFooter && (st.mode === 'bank' || st.mode === 'hide');
     const footerStyle = { borderTop: '1px solid var(--line)', padding: '8px 0 4px' };
     const bankBarStyle = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 30, background: 'var(--bg)', borderTop: '1px solid var(--line)', boxShadow: '0 -6px 20px rgba(0,0,0,.07)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' };
     const footerInner = { width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '10px' };
-    // Reserve bottom room so the passage tail can scroll clear: enough to lift the
-    // last blanks above the keyboard (top-bar modes), or to clear the bottom-pinned
-    // word-bank bar (whose tray can reach ~34vh). A CSS string — it's interpolated
-    // into the practice wrapper's style attribute.
-    const practicePad = 'padding-bottom:' + (st.mode === 'bank' ? 'calc(48vh + env(safe-area-inset-bottom))' : 'calc(40vh + env(safe-area-inset-bottom))');
+    // Hide mode's main control spans the full width so it's reachable with either hand.
+    const fullPrimaryBtn = { ...primaryBtn, width: '100%', padding: '13px 16px', fontSize: '15px', borderRadius: '12px' };
+    // Reserve bottom room so the passage tail can scroll clear: enough to lift the last
+    // blanks above the keyboard (top-bar modes), to clear the bottom-pinned word-bank
+    // tray (~34vh), or to clear the shorter hide bar. A CSS string — interpolated into
+    // the practice wrapper's style attribute.
+    const practicePad = 'padding-bottom:' + (st.mode === 'bank' ? 'calc(48vh + env(safe-area-inset-bottom))' : st.mode === 'hide' ? 'calc(150px + env(safe-area-inset-bottom))' : 'calc(40vh + env(safe-area-inset-bottom))');
     const navBtn = (disabled) => ({ padding: '8px 13px', borderRadius: '9px', border: '1px solid var(--line)', background: 'var(--surface)', color: disabled ? 'var(--muted)' : 'var(--text)', fontSize: '14px', fontWeight: 600, cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.5 : 1, touchAction: 'manipulation' });
 
     const base = {
@@ -1631,8 +1700,10 @@ class Component extends DCLogic {
       // errors
       hasError: !!st.error, error: st.error, offerKjv: st.offerKjv, switchToKjv: this.switchToKjv,
 
-      // tabs
-      modeTabs: [['hide', 'Hide & reveal'], ['hidden', 'Fill blanks'], ['bank', 'Word bank'], ['type', 'Test']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.tab(id === st.mode) })),
+      // mode selector: a full-width 3-way segmented toggle (no typing → no keyboard
+      // concerns) plus a distinct, full-width "Test" button broken out below it.
+      modeTabs: [['hide', 'Hide & reveal'], ['bank', 'Word bank'], ['hidden', 'Fill blanks']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.modeSeg(id === st.mode) })),
+      selectTest: () => this.setMode('type'), testTabStyle: this.testTab(st.mode === 'type'),
 
       // passage
       hasPassage: !!p, reference: p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef()), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
@@ -1642,8 +1713,9 @@ class Component extends DCLogic {
       // ease slider (top of passage)
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
 
-      // control bars (top for typing modes, bottom for word bank)
-      showFooter, showTopBar, showBankBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,
+      // control bars (top for typing modes, bottom for hide + word bank)
+      showFooter, showTopBar, showBottomBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,
+      hideBtnStyle: fullPrimaryBtn,
       revealAll: this.revealAll, toggleRevealAll: this.toggleRevealAll,
       revealAllLabel: st.revealAllNow ? 'Hide again' : 'Reveal all',
       resetMode: this.resetMode,
@@ -1679,8 +1751,9 @@ class Component extends DCLogic {
       esvModalOpen: st.esvModalOpen, closeEsvModal: this.closeEsvModal, switchToKjvFromModal: this.switchToKjvFromModal,
       esvTokenSaved: !!st.esvToken.trim(),
 
-      // app update prompt
+      // app update prompt + manual "check for updates" (Settings)
       updateReady: st.updateReady, applyUpdate: this.applyUpdate, dismissUpdate: this.dismissUpdate,
+      checkForUpdates: this.checkForUpdates, updateMsg: st.updateMsg,
     };
 
     // Per-mode footer values, computed in their own files.
