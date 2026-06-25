@@ -15,20 +15,20 @@
     view: 'home',
     pickerOpen: false,
     book: 'Psalms', chapter: '23', vStart: '1', vEnd: '',
-    corpus: 'bible', creedId: 'apostles', qStart: '1',
+    corpus: 'bible', creedId: 'apostles', qStart: '1', creedLang: 'en',
     ldMode: false, ldStart: '1',
     refInput: 'Psalms 23', verseCounts: {},
     loading: false, error: null, offerKjv: false,
     passage: null, mode: 'hide',
     settingsOpen: false, copyrightOpen: false, esvModalOpen: false,
     esvToken: '', reminderOn: false,
-    showHints: true, showVerseNums: true, scriptureSize: 'Comfortable',
+    showHints: true, showVerseNums: true, scriptureSize: 'Comfortable', scriptureFont: 'serif',
     blankPct: 0.25, blankList: [],
     hideAll: false, revealed: {}, revealAllNow: false,
-    hiddenVals: {},
+    hiddenVals: {}, hiddenReveal: {}, fillActive: null,
     bank: null, bankFill: {},
     bankActive: null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
-    typeVals: {},
+    typeVals: {}, typeReveal: {}, typeActive: null,
     progress: {}, streak: { count: 0, last: null },
     cacheCount: 0, usageToday: 0,
     updateReady: false,
@@ -76,7 +76,8 @@
       reminderOn: g('lectio.reminder', '0') === '1',
       showHints: this.props.hintsDefault ?? true,
       showVerseNums: this.props.showVerseNumbers ?? true,
-      scriptureSize: this.props.scriptureSize || 'Comfortable',
+      scriptureSize: g('lectio.size', this.props.scriptureSize || 'Comfortable'),
+      scriptureFont: g('lectio.font', this.props.scriptureFont || 'serif'),
       mode: this.props.defaultMode || 'hide',
       progress: gj('lectio.progress', {}),
       streak: gj('lectio.streak', { count: 0, last: null }),
@@ -87,7 +88,7 @@
     // Remember the last creeds picker selection (the displayed passage still starts
     // on the Scripture sample below; corpus stays 'bible' until the user switches).
     const csel = gj('lectio.creedsel', null);
-    if (csel && csel.creedId) { next.creedId = csel.creedId; next.qStart = csel.qStart || '1'; next.ldMode = !!csel.ldMode; next.ldStart = csel.ldStart || '1'; }
+    if (csel && csel.creedId) { next.creedId = csel.creedId; next.qStart = csel.qStart || '1'; next.ldMode = !!csel.ldMode; next.ldStart = csel.ldStart || '1'; if (csel.creedLang) next.creedLang = csel.creedLang; }
     next.verseCounts = gj('lectio.vc', {});
     this.setState(next, () => { this.applyTheme(theme); this.ensureVerseCount(); });
 
@@ -287,10 +288,10 @@
     this._revealPrev = null;
     this.setState({
       blankList: blanks, bank,
-      hiddenVals: {}, bankFill: {},
+      hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
       bankActive: blanks.length ? blanks[0] : null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
       hideAll: false, revealed: {}, revealAllNow: false,
-      typeVals: {},
+      typeVals: {}, typeReveal: {}, typeActive: null,
     }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
   };
   // Shared "ease" slider: how many words become blanks (fill + word-bank modes).
@@ -300,7 +301,7 @@
     const blanks = this.pickBlanks(p.words, pct, seed); const bank = this.buildBank(p, blanks, seed);
     this.setState({
       blankPct: pct, blankList: blanks, bank,
-      hiddenVals: {}, bankFill: {},
+      hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
       bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
       bankActive: blanks.length ? blanks[0] : null,
     }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
@@ -412,6 +413,15 @@
 
   // ---------- creeds & catechisms (embedded, no network) ----------
   creedDoc = (id) => this.CREEDS.find((d) => d.id === (id || this.state.creedId)) || this.CREEDS[0] || null;
+  // Some creeds (e.g. the Lord's Prayer) ship the same text in several languages,
+  // chosen by a toggle. creedLangList returns that list (or null for single-language
+  // docs); curCreedLang resolves the active language; creedParas yields its paragraphs.
+  creedLangList = (d) => (d && Array.isArray(d.langs) && d.langs.length) ? d.langs : null;
+  curCreedLang = (d) => { const ls = this.creedLangList(d); if (!ls) return null; return ls.find((l) => l.id === this.state.creedLang) || ls[0]; };
+  creedParas = (d) => { const l = this.curCreedLang(d); return (l ? l.paras : d.paras) || []; };
+  // A creed's display reference: title alone, or "title · Language" when multilingual
+  // (so English and Greek track progress separately and the header reads clearly).
+  creedLabel = (d) => { const l = this.curCreedLang(d); return l ? d.title + ' · ' + l.label : d.title; };
   // Whether this doc carries a Lord's Day map (Heidelberg) and is in that mode now.
   ldActive = (d) => Array.isArray(d.lordsDays) && d.lordsDays.length > 0 && this.state.ldMode;
   // Catechism questions are independent, so one is studied at a time. The exception is
@@ -428,13 +438,16 @@
     return { qs: n, qe: n, label: d.short + ' Q' + n };
   };
   // Reference shown in the picker/header before a creed has been loaded.
-  creedRefPreview = () => { const d = this.creedDoc(); if (!d) return 'Creeds & Catechisms'; return d.kind === 'catechism' ? this.catSelection(d).label : d.title; };
+  creedRefPreview = () => { const d = this.creedDoc(); if (!d) return 'Creeds & Catechisms'; return d.kind === 'catechism' ? this.catSelection(d).label : this.creedLabel(d); };
   setCorpus = (c) => this.setState({ corpus: c, error: null, offerKjv: false });
-  onCreed = (e) => this.setState({ creedId: e.target.value, qStart: '1', ldStart: '1' }, this.persistCreedSel);
+  // Switching docs resets the question/Lord's-Day cursors and the language to the new
+  // doc's first available language (so a single-language doc never shows a stale lang).
+  onCreed = (e) => { const id = e.target.value; const ls = this.creedLangList(this.creedDoc(id)); this.setState({ creedId: id, qStart: '1', ldStart: '1', creedLang: ls ? ls[0].id : 'en' }, this.persistCreedSel); };
   setCatGroup = (m) => this.setState({ ldMode: m === 'lordsday' }, this.persistCreedSel);
+  setCreedLang = (id) => this.setState({ creedLang: id }, this.persistCreedSel);
   onQStart = (e) => this.setState({ qStart: e.target.value }, this.persistCreedSel);
   onLdStart = (e) => this.setState({ ldStart: e.target.value }, this.persistCreedSel);
-  persistCreedSel = () => { try { localStorage.setItem('lectio.creedsel', JSON.stringify({ creedId: this.state.creedId, qStart: this.state.qStart, ldMode: this.state.ldMode, ldStart: this.state.ldStart })); } catch (e) {} };
+  persistCreedSel = () => { try { localStorage.setItem('lectio.creedsel', JSON.stringify({ creedId: this.state.creedId, qStart: this.state.qStart, ldMode: this.state.ldMode, ldStart: this.state.ldStart, creedLang: this.state.creedLang })); } catch (e) {} };
   loadCreed = () => {
     const d = this.creedDoc(); if (!d) return;
     let reference, verses;
@@ -443,8 +456,8 @@
       verses = d.items.filter((it) => it.n >= sel.qs && it.n <= sel.qe).map((it) => ({ num: it.n, head: it.q, text: it.a }));
       reference = sel.label;
     } else {
-      verses = (d.paras || []).map((t) => ({ num: null, text: t }));
-      reference = d.title;
+      verses = this.creedParas(d).map((t) => ({ num: null, text: t }));
+      reference = this.creedLabel(d);
     }
     this.persistCreedSel();
     const passage = this.buildPassage(reference, d.id, verses, { kind: d.kind, attribution: d.attribution, title: d.title });
@@ -550,13 +563,22 @@
   };
   resetMode = () => { const p = this.state.passage; if (p) this.initModes(p); };
   toggleHints = () => this.setState({ showHints: !this.state.showHints });
+  // Scripture display preferences (persisted): font family + size. Size always drives
+  // font-size — never CSS zoom — so iOS keeps text crisp and inline inputs aligned.
+  scriptFont = () => this.state.scriptureFont === 'sans' ? "'Noto Sans',system-ui,sans-serif" : "'Gentium Book Plus','Georgia',serif";
+  setScriptureFont = (f) => { this.setState({ scriptureFont: f }); try { localStorage.setItem('lectio.font', f); } catch (e) {} };
+  setScriptureSize = (s) => { this.setState({ scriptureSize: s }); try { localStorage.setItem('lectio.size', s); } catch (e) {} };
 
   // ---------- progress / streak ----------
   passageKey = () => { const p = this.state.passage; return p ? p.version + ' · ' + p.reference : ''; };
-  recordResult = (acc) => {
+  recordResult = (acc, opts = {}) => {
     const key = this.passageKey(); if (!key) return;
     const prog = { ...this.state.progress }; const cur = prog[key] || { best: 0, learned: false, attempts: 0 };
-    cur.best = Math.max(cur.best, acc); cur.attempts++; cur.lastMode = this.state.mode; prog[key] = cur;
+    cur.best = Math.max(cur.best, acc); cur.attempts++; cur.lastMode = this.state.mode;
+    // "Test" mode is the yardstick for how much of the passage is known: store its
+    // latest score as the passage's known level (a fresh test reflects current recall).
+    if (opts.known) cur.known = acc;
+    prog[key] = cur;
     this.setState({ progress: prog }); try { localStorage.setItem('lectio.progress', JSON.stringify(prog)); } catch (e) {}
     this.markPracticed();
   };

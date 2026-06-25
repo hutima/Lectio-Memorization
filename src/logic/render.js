@@ -23,7 +23,7 @@
     const h = React.createElement; const p = this.state.passage;
     if (!p) return h('div', { style: { color: 'var(--muted)' } }, 'Choose a passage to begin.');
     const sz = this.sizeMap[this.state.scriptureSize] || this.sizeMap.Comfortable;
-    const textStyle = { fontFamily: "'Gentium Book Plus','Georgia',serif", fontSize: sz.fs, lineHeight: sz.lh, color: 'var(--text)', letterSpacing: '.1px' };
+    const textStyle = { fontFamily: this.scriptFont(), fontSize: sz.fs, lineHeight: sz.lh, color: 'var(--text)', letterSpacing: '.1px' };
     // Creeds/catechisms render as stacked blocks — a catechism question heading above
     // its (practiced) answer, or a creed paragraph; Scripture flows inline with
     // superscript verse numbers. Detected from the passage shape: a verse heading, or
@@ -60,6 +60,8 @@
     const isBible = st.corpus !== 'creeds';
     const isCreeds = st.corpus === 'creeds';
     const curCreed = isCreeds ? this.creedDoc() : null;
+    // A multilingual creed (e.g. the Lord's Prayer) exposes a language toggle.
+    const creedLangs = curCreed ? this.creedLangList(curCreed) : null;
     const isCatechism = !!curCreed && curCreed.kind === 'catechism';
     const catTotal = isCatechism ? curCreed.items.length : 0;
     // A catechism with a Lord's Day map (Heidelberg) can be grouped by Lord's Day.
@@ -75,8 +77,11 @@
     const practicedToday = st.streak.last === today;
     const key = this.passageKey(); const prg = st.progress[key] || { best: 0, learned: false, attempts: 0 };
     const bestLabel = prg.attempts ? 'Best ' + Math.round(prg.best * 100) + '%' + (prg.attempts ? ' · ' + prg.attempts + ' tries' : '') : 'Not practiced yet';
+    // "Known %" — set by the most recent Test (see recordResult); shown in the stats row.
+    const hasKnown = prg.known != null;
+    const knownLabel = hasKnown ? 'Known ' + Math.round(prg.known * 100) + '%' : '';
 
-    const modeHints = { hide: 'Recite from memory; peek when stuck.', hidden: 'Fill in the missing words.', bank: 'Rebuild it from the word bank.', type: 'Type it one word at a time.' };
+    const modeHints = { hide: 'Recite from memory; peek when stuck.', hidden: 'Fill in the missing words.', bank: 'Rebuild it from the word bank.', type: 'Test yourself — your score shows how much you know.' };
 
     // shared "ease" slider (fill + bank): fewest → every word blank
     const showEase = !!p && (st.mode === 'hidden' || st.mode === 'bank');
@@ -110,7 +115,7 @@
       // views
       isHome: st.view === 'home', isPractice: st.view === 'practice', goHome: this.goHome,
       startHide: this.startHide, startFill: this.startFill, startBank: this.startBank, startType: this.startType,
-      currentModeName: ({ hide: 'Hide & reveal', hidden: 'Fill blanks', bank: 'Word bank', type: 'Type it' })[st.mode],
+      currentModeName: ({ hide: 'Hide & reveal', hidden: 'Fill blanks', bank: 'Word bank', type: 'Test' })[st.mode],
       homeSummary: this.homeSummary(),
 
       // picker
@@ -121,6 +126,9 @@
       isBible, isCreeds,
       creedDocs: this.CREEDS.map((d) => ({ id: d.id, title: d.title })),
       creedId: st.creedId, onCreed: this.onCreed,
+      // Language toggle for multilingual creeds (Lord's Prayer: English / Greek).
+      hasCreedLangs: !!creedLangs,
+      langOpts: creedLangs ? creedLangs.map((l) => ({ label: l.label, onClick: () => this.setCreedLang(l.id), style: this.seg(l.id === this.curCreedLang(curCreed).id) })) : [],
       isCatechism,
       // Group toggle (Heidelberg only): pick by individual question or by Lord's Day.
       hasLordsDays: hasLD, ldMode,
@@ -154,7 +162,7 @@
       hasError: !!st.error, error: st.error, offerKjv: st.offerKjv, switchToKjv: this.switchToKjv,
 
       // tabs
-      modeTabs: [['hide', 'Hide & reveal'], ['hidden', 'Fill blanks'], ['bank', 'Word bank'], ['type', 'Type it']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.tab(id === st.mode) })),
+      modeTabs: [['hide', 'Hide & reveal'], ['hidden', 'Fill blanks'], ['bank', 'Word bank'], ['type', 'Test']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.tab(id === st.mode) })),
 
       // passage
       hasPassage: !!p, reference: p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef()), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
@@ -174,7 +182,7 @@
       // status
       streakDot: practicedToday ? 'var(--accent)' : 'var(--line)',
       streakLabel: (st.streak.count || 0) + '-day streak',
-      bestLabel,
+      bestLabel, hasKnown, knownLabel,
       toggleLearned: this.toggleLearned, learnedBtn: this.toggleBtn(prg.learned), learnedLabel: prg.learned ? '✓ Learned' : 'Mark as learned',
 
       // attribution
@@ -185,6 +193,11 @@
       settingsOpen: st.settingsOpen, closeSettings: this.closeSettings, stop: this.stop,
       esvToken: st.esvToken, onTokenChange: this.onTokenChange, tokenState: st.esvToken ? 'Token saved.' : 'No token yet.',
       themeOpts: ['system', 'light', 'dark'].map((t) => ({ label: t.charAt(0).toUpperCase() + t.slice(1), onClick: () => this.setTheme(t), style: this.seg(t === st.theme) })),
+      // Scripture display: font family (serif/sans) + size. Both persist; size drives
+      // font-size, so it scales the passage and its inline inputs without CSS zoom.
+      fontOpts: [['serif', 'Serif'], ['sans', 'Sans']].map(([id, label]) => ({ label, onClick: () => this.setScriptureFont(id), style: this.seg(id === st.scriptureFont) })),
+      sizeOpts: ['Compact', 'Comfortable', 'Large'].map((s) => ({ label: s, onClick: () => this.setScriptureSize(s), style: this.seg(s === st.scriptureSize) })),
+      scripturePreviewStyle: { fontFamily: this.scriptFont(), fontSize: (this.sizeMap[st.scriptureSize] || this.sizeMap.Comfortable).fs, lineHeight: 1.4, color: 'var(--text)', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--line)', borderRadius: '10px' },
       toggleReminder: this.toggleReminder, reminderBtn: this.toggleBtn(st.reminderOn), reminderLabel: st.reminderOn ? 'On' : 'Off',
       cacheStatus: st.cacheCount + (st.cacheCount === 1 ? ' ESV verse cached.' : ' ESV verses cached.'),
       clearCache: this.clearCache,

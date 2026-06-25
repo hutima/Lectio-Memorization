@@ -3,6 +3,7 @@
   "defaultMode": { "editor": "enum", "options": ["hide", "hidden", "bank", "type"], "default": "hide", "tsType": "\"hide\"|\"hidden\"|\"bank\"|\"type\"" },
   "defaultVersion": { "editor": "enum", "options": ["ESV", "KJV"], "default": "KJV", "tsType": "\"ESV\"|\"KJV\"" },
   "scriptureSize": { "editor": "enum", "options": ["Compact", "Comfortable", "Large"], "default": "Comfortable", "tsType": "\"Compact\"|\"Comfortable\"|\"Large\"" },
+  "scriptureFont": { "editor": "enum", "options": ["serif", "sans"], "default": "serif", "tsType": "\"serif\"|\"sans\"" },
   "showVerseNumbers": { "editor": "boolean", "default": true, "tsType": "boolean" },
   "hintsDefault": { "editor": "boolean", "default": true, "tsType": "boolean" }
 }
