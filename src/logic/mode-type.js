@@ -24,11 +24,19 @@
     }
   };
   onTypeKey = (vi, e) => {
-    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevType(vi); return; }
+    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this._typeSpaceArmed = null; this.focusPrevType(vi); return; }
     // A space typed into an empty field is redundant — a correct word already auto-advanced
     // here, so swallow the space rather than insert a leading one (which would also count as
-    // a trailing space and skip the word). Only words you actually mistype need a manual space.
-    if ((e.key === ' ' || e.key === 'Spacebar') && e.target.value === '') e.preventDefault();
+    // a trailing space and skip the word). But a SECOND space in a row deliberately advances:
+    // the first space is ignored, and the double-space steps past a word you mean to skip
+    // without typing it. Only words you actually mistype need a trailing space.
+    if ((e.key === ' ' || e.key === 'Spacebar') && e.target.value === '') {
+      e.preventDefault();
+      if (this._typeSpaceArmed === vi) { this._typeSpaceArmed = null; this.focusNextType(vi); }
+      else this._typeSpaceArmed = vi;
+      return;
+    }
+    this._typeSpaceArmed = null;
   };
   onTypeChange = (vi, val) => {
     const p = this.state.passage; const cur = p ? p.words[vi].text : '';
