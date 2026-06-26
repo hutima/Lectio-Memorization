@@ -20,11 +20,19 @@
     }
   };
   onBlankKey = (vi, e) => {
-    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevBlank(vi); return; }
+    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this._blankSpaceArmed = null; this.focusPrevBlank(vi); return; }
     // A space typed into an empty blank is redundant — a correct word already auto-advanced
     // here, so swallow it rather than insert a leading space (which would also read as a
-    // trailing space and skip the blank). Mistyped blanks still take a manual space to move on.
-    if ((e.key === ' ' || e.key === 'Spacebar') && e.target.value === '') e.preventDefault();
+    // trailing space and skip the blank). But a SECOND space in a row deliberately advances:
+    // the first space is ignored, and the double-space steps past a blank you mean to skip
+    // without typing it. Mistyped blanks still take a trailing space to move on.
+    if ((e.key === ' ' || e.key === 'Spacebar') && e.target.value === '') {
+      e.preventDefault();
+      if (this._blankSpaceArmed === vi) { this._blankSpaceArmed = null; this.focusNextBlank(vi); }
+      else this._blankSpaceArmed = vi;
+      return;
+    }
+    this._blankSpaceArmed = null;
   };
   onBlankChange = (vi, val) => {
     const p = this.state.passage; const cur = p ? p.words[vi].text : '';
@@ -36,7 +44,9 @@
     // Auto-advance on a trailing space OR as soon as the typed word matches exactly,
     // so a correct blank turns green and hands focus to the next field.
     const exact = cur && this.norm(raw) === this.norm(cur);
-    this.setState({ hiddenVals: { ...this.state.hiddenVals, [vi]: stored }, hiddenReveal: reveal }, () => { if (trailingSpace || exact) this.focusNextBlank(vi); this.checkHiddenDone(); });
+    // A correctly typed blank is a word recalled from memory — add it to the verse's
+    // accumulating completion (the union grows as reshuffled blanks cover more words).
+    this.setState({ hiddenVals: { ...this.state.hiddenVals, [vi]: stored }, hiddenReveal: reveal }, () => { if (exact) this.recordVerseRecall([vi]); if (trailingSpace || exact) this.focusNextBlank(vi); this.checkHiddenDone(); });
   };
   // Reveal the current (focused, else first empty) blank: fill the answer but flag it in
   // hiddenReveal so it counts wrong; then advance to the next blank.
@@ -70,7 +80,9 @@
       onKeyDown: (e) => this.onBlankKey(vi, e),
       // Tapping a blank focuses it directly (and marks it current); keep it above the keyboard.
       onFocus: (e) => { this.setState({ fillActive: vi }); try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} },
-      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
+      // Numbers (the reference's chapter/verse) are never hinted — a single digit's first
+      // character is the whole answer, so a hint would just give it away.
+      placeholder: st.showHints && !/^\d/.test(text) ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
       style: { font: 'inherit', fontFamily: this.scriptFont(), width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px', touchAction: 'manipulation' },
     });
   };

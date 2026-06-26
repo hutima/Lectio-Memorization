@@ -32,6 +32,9 @@
   // A passage counts as "completed" (dark blue) once it's marked learned or scored
   // at/above this on Test or any graded mode; otherwise practising it marks it "seen".
   MASTERY = 0.9;
+  // A verse is "highly confident" — counted in the per-book tallies and the "memorized"
+  // totals — once at least this fraction of its words has been recalled from memory.
+  CONFIDENT = 0.8;
   // Normalized book-name -> 0-based index, including the "Psalm"/"Psalms" alias the
   // stored references use (fixBookName renders a single psalm as "Psalm 23").
   bookLookup = () => {
@@ -60,58 +63,90 @@
     return { bi, ch, vs: n.length ? n[0] : 1, ve: n.length ? n[n.length - 1] : 1 };
   };
 
-  // Build a per-verse status array over the whole canon: 0 unseen, 1 seen, 2
-  // completed. Sources: the "seen on load" list (>=1) and every progress entry
-  // (practised -> >=1, learned / high score -> 2). Also returns prefix sums so the
-  // bar can average any range in O(1), plus the seen/completed verse totals.
+  // Build two per-verse arrays over the whole canon: `seen` (0/1, loaded or practised) and
+  // `comp` (0..1 completion = the best fraction of the verse's words recalled from memory).
+  // Sources: the "seen on load" list; every progress entry's per-verse signals — Test's
+  // verseKnown (% correct per verse) and the other modes' accumulating verseRecall (recalled
+  // words ÷ verse length) — plus the manual "learned" flag (whole passage -> 1) and legacy
+  // whole-passage Test scores. Also returns prefix sums of a 0..2 display value (0 unseen,
+  // 1 seen, 1+comp practised) so the bar can average any range in O(1), and the seen /
+  // confident verse totals.
   verseStatus = () => {
     const { off, total, otEnd } = this.canonGeom(); const V = this.versify();
-    const status = new Uint8Array(total);
-    const setRange = (bi, ci, a, b, val) => { const base = off[bi][ci]; for (let v = a; v <= b; v++) { const i = base + (v - 1); if (i >= 0 && i < total && status[i] < val) status[i] = val; } };
-    const mark = (ref, val) => {
+    const seen = new Uint8Array(total);
+    const comp = new Float32Array(total);
+    const seenRange = (bi, ci, a, b) => { const base = off[bi][ci]; for (let v = a; v <= b; v++) { const i = base + (v - 1); if (i >= 0 && i < total) seen[i] = 1; } };
+    const setComp = (bi, ci, v, val) => { const i = off[bi][ci] + (v - 1); if (i >= 0 && i < total) { seen[i] = 1; if (comp[i] < val) comp[i] = val; } };
+    const markSeen = (ref) => {
       const p = this.parseRef(ref); if (!p) return;
-      if (p.ch == null) { V[p.bi].forEach((n, ci) => setRange(p.bi, ci, 1, n, val)); }
-      else if (p.vs == null) { for (let c = p.ch; c <= (p.chEnd || p.ch); c++) { const n = V[p.bi][c - 1]; if (n) setRange(p.bi, c - 1, 1, n, val); } }
-      else { const n = V[p.bi][p.ch - 1] || p.ve; setRange(p.bi, p.ch - 1, Math.max(1, p.vs), Math.min(n, p.ve || p.vs), val); }
+      if (p.ch == null) { V[p.bi].forEach((n, ci) => seenRange(p.bi, ci, 1, n)); }
+      else if (p.vs == null) { for (let c = p.ch; c <= (p.chEnd || p.ch); c++) { const n = V[p.bi][c - 1]; if (n) seenRange(p.bi, c - 1, 1, n); } }
+      else { const n = V[p.bi][p.ch - 1] || p.ve; seenRange(p.bi, p.ch - 1, Math.max(1, p.vs), Math.min(n, p.ve || p.vs)); }
     };
-    // Per-verse mastery from Test mode: verseKnown holds a 0–1 score per verse, keyed by the
-    // verse's 0-based position in the passage. Upgrade the verses actually nailed (>= MASTERY)
-    // to "memorized", even when the whole-passage average is still low — so finishing verse 1
-    // lights up verse 1, not the whole chapter. Only single-chapter selections map position →
-    // verse number cleanly; multi-chapter ones keep the coarser whole-passage marking. The
-    // appended reference line is one position past the last verse, so it falls outside [vs,ve].
-    const markVerses = (ref, vk) => {
-      const p = this.parseRef(ref); if (!p || p.ch == null || (p.chEnd && p.chEnd !== p.ch)) return;
-      const n = (V[p.bi] || [])[p.ch - 1]; if (!n) return;
+    // Apply one completion value across a whole passage (the manual "learned" flag, or a
+    // legacy whole-passage Test score with no per-verse breakdown).
+    const markCompWhole = (ref, val) => {
+      const p = this.parseRef(ref); if (!p || !(val > 0)) return;
+      if (p.ch == null) { V[p.bi].forEach((n, ci) => { for (let v = 1; v <= n; v++) setComp(p.bi, ci, v, val); }); }
+      else if (p.vs == null) { for (let c = p.ch; c <= (p.chEnd || p.ch); c++) { const n = V[p.bi][c - 1]; if (n) for (let v = 1; v <= n; v++) setComp(p.bi, c - 1, v, val); } }
+      else { const n = V[p.bi][p.ch - 1] || p.ve; for (let v = Math.max(1, p.vs); v <= Math.min(n, p.ve || p.vs); v++) setComp(p.bi, p.ch - 1, v, val); }
+    };
+    // Per-verse completion keyed by the verse's 0-based position in the passage. Only
+    // single-chapter selections map position → verse number cleanly (mirrors the old
+    // markVerses), so multi-chapter passages fall back to whole-passage marking. The
+    // appended reference line sits one position past the last verse, so it's outside [vs,ve].
+    const markCompVerses = (ref, perVerse) => {
+      const p = this.parseRef(ref); if (!p || p.ch == null || (p.chEnd && p.chEnd !== p.ch)) return false;
+      const n = (V[p.bi] || [])[p.ch - 1]; if (!n) return false;
       const startV = p.vs || 1; const endV = p.ve || n;
-      Object.keys(vk).forEach((k) => {
-        const idx = parseInt(k, 10); if (isNaN(idx) || (vk[k] || 0) < this.MASTERY) return;
-        const v = startV + idx; if (v >= startV && v <= endV && v <= n) setRange(p.bi, p.ch - 1, v, v, 2);
+      Object.keys(perVerse).forEach((k) => {
+        const idx = parseInt(k, 10); if (isNaN(idx) || !(perVerse[k] > 0)) return;
+        const v = startV + idx; if (v >= startV && v <= endV && v <= n) setComp(p.bi, p.ch - 1, v, Math.min(1, perVerse[k]));
       });
+      return true;
     };
-    (this.state.seen || []).forEach((r) => mark(r, 1));
+    (this.state.seen || []).forEach((r) => markSeen(r));
     const prog = this.state.progress || {};
     Object.keys(prog).forEach((key) => {
-      const p = prog[key]; const ref = key.replace(/^[^·]*·\s*/, '');
-      if (p.learned || (p.best || 0) >= this.MASTERY || (p.known || 0) >= this.MASTERY) mark(ref, 2);
-      else if ((p.attempts || 0) > 0) mark(ref, 1);
-      if (p.verseKnown) markVerses(ref, p.verseKnown);
+      const e = prog[key]; const ref = key.replace(/^[^·]*·\s*/, '');
+      if ((e.attempts || 0) > 0 || e.learned) markSeen(ref);
+      // Per-verse completion: the best of Test's % per verse and the accumulated recall fraction.
+      const perVerse = {};
+      if (e.verseKnown) Object.keys(e.verseKnown).forEach((v) => { perVerse[v] = Math.max(perVerse[v] || 0, e.verseKnown[v] || 0); });
+      if (e.verseRecall) Object.keys(e.verseRecall).forEach((v) => { const r = e.verseRecall[v]; if (r && r.n) perVerse[v] = Math.max(perVerse[v] || 0, (r.w ? r.w.length : 0) / r.n); });
+      const had = Object.keys(perVerse).length ? markCompVerses(ref, perVerse) : false;
+      if (e.learned) markCompWhole(ref, 1);
+      else if (!had && (e.known || 0) > 0) markCompWhole(ref, e.known);
     });
     const pre = new Float64Array(total + 1); let seenN = 0, doneN = 0;
-    for (let i = 0; i < total; i++) { pre[i + 1] = pre[i] + status[i]; if (status[i] >= 1) seenN++; if (status[i] === 2) doneN++; }
-    return { status, pre, total, otEnd, seenN, doneN };
+    for (let i = 0; i < total; i++) {
+      const x = seen[i] ? (comp[i] > 0 ? 1 + comp[i] : 1) : 0;
+      pre[i + 1] = pre[i] + x;
+      if (seen[i]) seenN++;
+      if (comp[i] >= this.CONFIDENT) doneN++;
+    }
+    return { seen, comp, pre, total, otEnd, seenN, doneN };
   };
 
-  // ---------- colour ramp (unseen -> seen -> completed) ----------
-  // JS values (not CSS vars) so we can interpolate the binned averages. Tuned per
-  // theme: a calm grey rising through light blue to a deep blue (brighter on dark).
+  // ---------- colour ramp (unseen -> seen -> increasingly complete) ----------
+  // Four JS stops (not CSS vars) so we can interpolate the binned averages: `a` unseen grey,
+  // `b` a LIGHTER "seen" grey (distinct from unseen so a loaded-but-unpractised verse reads as
+  // touched), then `m` light blue rising to `c` deep blue as a verse's completion climbs.
+  // Tuned per theme (brighter on dark, where lighter = more visible against the dark bg).
   canonStops = () => this.state.resolvedTheme === 'dark'
-    ? { a: [52, 48, 42], b: [63, 109, 151], c: [124, 184, 242] }
-    : { a: [228, 222, 208], b: [154, 195, 232], c: [47, 111, 176] };
+    ? { a: [46, 43, 38], b: [92, 99, 107], m: [74, 121, 166], c: [125, 185, 242] }
+    : { a: [219, 213, 200], b: [201, 207, 216], m: [150, 193, 231], c: [45, 110, 176] };
   mix = (x, y, t) => 'rgb(' + Math.round(x[0] + (y[0] - x[0]) * t) + ',' + Math.round(x[1] + (y[1] - x[1]) * t) + ',' + Math.round(x[2] + (y[2] - x[2]) * t) + ')';
-  // Map an averaged status in [0,2] onto the ramp (0 grey, 1 light blue, 2 deep blue).
-  canonColor = (avg) => { const s = this.canonStops(); return avg <= 1 ? this.mix(s.a, s.b, avg) : this.mix(s.b, s.c, avg - 1); };
-  // Heatmap level: grey at 0, then four blue steps from light to deep by busy-ness.
+  // Map an averaged value in [0,2] onto the ramp: 0 unseen grey, 1 seen grey, then completion
+  // (1..2) flows seen-grey -> light blue -> deep blue, so a verse turns "more and more blue"
+  // the more of it has been recalled. Discrete creed squares pass 0/1/2 and land on a/b/c.
+  canonColor = (x) => {
+    const s = this.canonStops();
+    if (x <= 1) return this.mix(s.a, s.b, Math.max(0, x));
+    const t = Math.min(1, x - 1);
+    return t <= 0.5 ? this.mix(s.b, s.m, t * 2) : this.mix(s.m, s.c, (t - 0.5) * 2);
+  };
+  // Heatmap level: grey at 0, then blue steps from light to deep by busy-ness.
   heatColor = (c) => { const s = this.canonStops(); if (c <= 0) return this.mix(s.a, s.a, 0); const t = c <= 1 ? 0.32 : c <= 3 ? 0.55 : c <= 5 ? 0.78 : 1; return this.mix(s.a, s.c, t); };
 
   // ---------- canon bar ----------
@@ -137,28 +172,29 @@
   };
   // Tapping a canon bar toggles its per-book breakdown (keyed 'all' / 'ot' / 'nt').
   toggleCanon = (key) => { const open = { ...(this.state.canonOpen || {}) }; open[key] = !open[key]; this.setState({ canonOpen: open }); };
-  // The expanded list: one row per book within [a,b) — name, a mini status bar, and
-  // how many of its verses you've seen. Books with no progress stay muted.
+  // The expanded list: one row per book within [a,b) — name, a mini completion bar, and
+  // how many of its verses you've memorized (recalled to high confidence, >80%). Books with
+  // no progress stay muted; a book you've only glanced at shows 0 until a verse is confident.
   renderBookList = (data, a, b, key) => {
     const h = React.createElement;
     const rows = this.bookRanges().filter((r) => r.b > a && r.a < b).map((r) => {
-      let seen = 0; for (let i = r.a; i < r.b; i++) if (data.status[i] >= 1) seen++;
+      let conf = 0, seen = 0; for (let i = r.a; i < r.b; i++) { if (data.seen[i]) seen++; if (data.comp[i] >= this.CONFIDENT) conf++; }
       const total = r.b - r.a;
       return h('div', { key: r.bi, style: { display: 'flex', alignItems: 'center', gap: '8px' } }, [
         h('div', { key: 'nm', style: { width: '108px', flex: 'none', fontSize: '12px', color: seen ? 'var(--text)' : 'var(--muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' } }, r.name),
         h('div', { key: 'br', style: { flex: 1, minWidth: 0 } }, this.renderBar(data, r.a, r.b, key + 'b' + r.bi, 14)),
-        h('div', { key: 'ct', style: { width: '58px', flex: 'none', textAlign: 'right', fontSize: '11px', color: seen ? 'var(--text)' : 'var(--muted)' } }, seen + ' / ' + total),
+        h('div', { key: 'ct', style: { width: '58px', flex: 'none', textAlign: 'right', fontSize: '11px', color: conf ? 'var(--text)' : 'var(--muted)' } }, conf + ' / ' + total),
       ]);
     });
     return h('div', { key: key + 'list', style: { display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '4px', paddingTop: '10px', borderTop: '1px solid var(--line)' } }, rows);
   };
 
   // ---------- practice heatmap (GitHub-style) ----------
-  // Last ~26 weeks of daily practice, columns = weeks (Sunday-aligned), rows =
+  // Last ~13 weeks (3 months) of daily practice, columns = weeks (Sunday-aligned), rows =
   // weekday. Cells are keyed and coloured by lectio.history[date] (UTC, matching
   // how the streak stamps "today"). Today gets an accent ring.
   renderHeatmap = () => {
-    const h = React.createElement; const hist = this.state.history || {}; const MS = 86400000; const weeks = 26;
+    const h = React.createElement; const hist = this.state.history || {}; const MS = 86400000; const weeks = 13;
     const todayStr = new Date().toISOString().slice(0, 10); const tMid = Date.parse(todayStr + 'T00:00:00Z');
     let sMid = tMid - (weeks * 7 - 1) * MS; sMid -= new Date(sMid).getUTCDay() * MS;
     const days = Math.round((tMid - sMid) / MS) + 1; const cols = []; let col = [];
@@ -244,7 +280,7 @@
     ]);
 
     const heat = this.card([
-      h('div', { key: 't', style: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' } }, this.sectionTitle('PRACTICE · LAST 6 MONTHS'), h('span', { style: { fontSize: '12px', color: 'var(--muted)' } }, 'Every day you practise lights up.')),
+      h('div', { key: 't', style: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' } }, this.sectionTitle('PRACTICE · LAST 3 MONTHS'), h('span', { style: { fontSize: '12px', color: 'var(--muted)' } }, 'Every day you practise lights up.')),
       this.renderHeatmap(),
       h('div', { key: 'lg', style: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--muted)' } }, 'Less', h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(0), border: '1px solid var(--line)' } }), h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(1) } }), h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(3) } }), h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(5) } }), h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(9) } }), 'More'),
     ], 'heat');

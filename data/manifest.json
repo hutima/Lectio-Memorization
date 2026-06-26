@@ -151,6 +151,14 @@
         38,
         39
       ]
+    },
+    "Coverdale": {
+      "dir": "coverdale",
+      "label": "Coverdale Psalter (BCP 1662)",
+      "attribution": "The Psalter, or Psalms of David, from the Book of Common Prayer (1662) — Miles Coverdale's translation (Great Bible, 1539), Public Domain. Re-numbered to the King James verse scheme for this app (verse boundaries aligned to the KJV; wording unchanged). Psalms only.",
+      "books": [
+        19
+      ]
     }
   },
   "generated": "Built by scripts/build-bible-data.mjs from: aruljohn/Bible-kjv (KJV, PD); morphgnt/tischendorf-data 2.8 (GNT, PD); nathans/lxx-swete (LXX, Swete 1909, CC BY-SA 4.0)."

@@ -174,6 +174,13 @@ word-bank options and falls back to other passage words when offline.
 - **ESV** via `api.esv.org` (requires a user-supplied token; cached up to 500
   verses per the ESV API terms — see the in-app copyright notice).
 - **KJV / fallback** via public APIs (`bible-api.com`, `bolls.life`).
+- **Coverdale Psalter** (BCP 1662, public domain) — **Psalms only**, bundled
+  fully offline at `data/coverdale/19.json`. Built by `scripts/build-coverdale.mjs`
+  from the committed `data/coverdale/source.txt`: it drops the chant pause colon,
+  recombines Psalm 119's 22 sections, and **re-numbers the verses onto the KJV
+  scheme** (aligning Coverdale's verse boundaries to KJV by word overlap) so the
+  canon map / selector / reference line all line up. The selector snaps to Psalms
+  when Coverdale is chosen, and back to KJV when another book is picked.
 - The service worker deliberately **never** caches Bible-text API responses
   (see the host checks in `sw.js`); passage text is cached only in
   `localStorage` by the app, capped to honor the ESV terms.

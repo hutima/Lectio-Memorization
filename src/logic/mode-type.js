@@ -24,11 +24,19 @@
     }
   };
   onTypeKey = (vi, e) => {
-    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevType(vi); return; }
+    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this._typeSpaceArmed = null; this.focusPrevType(vi); return; }
     // A space typed into an empty field is redundant — a correct word already auto-advanced
     // here, so swallow the space rather than insert a leading one (which would also count as
-    // a trailing space and skip the word). Only words you actually mistype need a manual space.
-    if ((e.key === ' ' || e.key === 'Spacebar') && e.target.value === '') e.preventDefault();
+    // a trailing space and skip the word). But a SECOND space in a row deliberately advances:
+    // the first space is ignored, and the double-space steps past a word you mean to skip
+    // without typing it. Only words you actually mistype need a trailing space.
+    if ((e.key === ' ' || e.key === 'Spacebar') && e.target.value === '') {
+      e.preventDefault();
+      if (this._typeSpaceArmed === vi) { this._typeSpaceArmed = null; this.focusNextType(vi); }
+      else this._typeSpaceArmed = vi;
+      return;
+    }
+    this._typeSpaceArmed = null;
   };
   onTypeChange = (vi, val) => {
     const p = this.state.passage; const cur = p ? p.words[vi].text : '';
@@ -117,7 +125,9 @@
       onKeyDown: (e) => this.onTypeKey(vi, e),
       // Tapping a word focuses it directly (and marks it current); keep it above the keyboard.
       onFocus: (e) => { this.setState({ typeActive: vi }); try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} },
-      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
+      // Numbers (the reference's chapter/verse) are never hinted — a single digit's first
+      // character is the whole answer, so a hint would just give it away.
+      placeholder: st.showHints && !/^\d/.test(text) ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
       style: { font: 'inherit', fontFamily: this.scriptFont(), width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px', touchAction: 'manipulation' },
     });
   };

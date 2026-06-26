@@ -133,6 +133,12 @@
     const showTopBar = showFooter && (st.mode === 'hidden' || st.mode === 'type');
     const showBottomBar = showFooter && (st.mode === 'bank' || st.mode === 'hide');
     const footerStyle = { borderTop: '1px solid var(--line)', padding: '8px 0 4px' };
+    // The app header is sticky everywhere EXCEPT the typing modes (fill / type): there it
+    // scrolls away so the compact control bar below can be the thing pinned to the top, where
+    // it stays reachable while you type (a tall sticky header + bar was unreliable on iOS and
+    // often scrolled out of view). The bar gets its own sticky wrapper at top:0.
+    const headerWrapStyle = { width: '100%', maxWidth: '800px', position: showTopBar ? 'relative' : 'sticky', top: 0, zIndex: 20, background: 'var(--bg)', borderBottom: '1px solid var(--line)' };
+    const pinnedBarWrapStyle = { width: '100%', maxWidth: '800px', position: 'sticky', top: 0, zIndex: 25, background: 'var(--bg)', borderBottom: '1px solid var(--line)', padding: '8px 0 6px' };
     const bankBarStyle = { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 30, background: 'var(--bg)', borderTop: '1px solid var(--line)', boxShadow: '0 -6px 20px rgba(0,0,0,.07)', padding: '10px 16px calc(10px + env(safe-area-inset-bottom))' };
     const footerInner = { width: '100%', maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '10px' };
     // Hide mode's main control spans the full width so it's reachable with either hand.
@@ -182,7 +188,7 @@
       ldOptions: hasLD ? curCreed.lordsDays.map((rng, i) => ({ value: String(i + 1), label: "Lord's Day " + (i + 1) + ' · Q' + rng[0] + (rng[1] > rng[0] ? '–' + rng[1] : '') })) : [],
       ldStart: st.ldStart, onLdStart: this.onLdStart,
       creedHint: isCatechism ? (ldMode ? "Pick a Lord's Day to study its questions together." : 'Pick a question to study.') : 'The full text, stored in the app.',
-      versions: ['ESV', 'KJV', 'Greek'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
+      versions: ['ESV', 'KJV', 'Greek', 'Coverdale'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
       books: this.BOOKS, book: st.book, onBook: this.onBook, selectStyle,
       chapterSelectStyle: { ...selectStyle, flex: 'none', minWidth: '92px' },
       showChapter: !single,
@@ -237,6 +243,7 @@
 
       // control bars (top for typing modes, bottom for hide + word bank)
       showFooter, showTopBar, showBottomBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,
+      headerWrapStyle, pinnedBarWrapStyle,
       hideBtnStyle: fullPrimaryBtn,
       revealAll: this.revealAll, toggleRevealAll: this.toggleRevealAll,
       revealAllLabel: st.revealAllNow ? 'Hide again' : 'Reveal all',
@@ -250,7 +257,7 @@
       toggleLearned: this.toggleLearned, learnedBtn: this.toggleBtn(prg.learned), learnedLabel: prg.learned ? '✓ Learned' : 'Mark as learned',
 
       // attribution
-      isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', isLxx: !!p && p.version === 'LXX', openCopyright: this.openCopyright,
+      isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', isLxx: !!p && p.version === 'LXX', isCoverdale: !!p && p.version === 'Coverdale', openCopyright: this.openCopyright,
       isCreedDoc: !!p && !!p.kind, creedNote: (p && p.attribution) ? p.attribution : '',
 
       // settings
