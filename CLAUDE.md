@@ -51,6 +51,10 @@ src/                Editable source for the component (edit these)
     mode-fill.js        "Fill blanks" mode.
     mode-bank.js        "Word bank" mode (per-blank multiple choice + tray).
     mode-type.js        "Type it" mode.
+    stats.js            "Your progress" view: canon map, heatmap, suggested passages.
+    gamify.js           Gentle gamification: XP/levels/titles, badges, and the
+                        first-practice / streak / level-up celebration banners
+                        (all derived from the existing progress/streak/history).
     render.js           renderWord dispatch, renderPractice, renderVals aggregator.
   props.json          Editor-facing props (plain JSON; build escapes it).
 
