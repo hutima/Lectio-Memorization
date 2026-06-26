@@ -261,6 +261,7 @@
       toggleReminder: this.toggleReminder, reminderBtn: this.toggleBtn(st.reminderOn), reminderLabel: st.reminderOn ? 'On' : 'Off',
       cacheStatus: st.cacheCount + (st.cacheCount === 1 ? ' ESV verse cached.' : ' ESV verses cached.'),
       clearCache: this.clearCache,
+      exportProgress: this.exportProgress, importProgress: this.importProgress, dataMsg: st.dataMsg,
       usageVisible: st.usageToday > 0, usageToday: st.usageToday.toLocaleString(),
 
       copyrightOpen: st.copyrightOpen, closeCopyright: this.closeCopyright,
