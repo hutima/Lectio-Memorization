@@ -25,7 +25,7 @@
     esvToken: '', reminderOn: false,
     showHints: true, showVerseNums: true, scriptureSize: 'Comfortable', scriptureFont: 'serif',
     blankPct: 0.25, blankList: [],
-    hideAll: false, revealed: {}, hidden: {}, revealAllNow: false,
+    hideAll: false, revealed: {}, hidden: {}, revealAllNow: false, holdPeek: false,
     hiddenVals: {}, hiddenReveal: {}, fillActive: null,
     bank: null, bankFill: {},
     bankActive: null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
@@ -397,7 +397,7 @@
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
       bankActive: blanks.length ? blanks[0] : null, bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
-      hideAll: false, revealed: {}, hidden: {}, revealAllNow: false,
+      hideAll: false, revealed: {}, hidden: {}, revealAllNow: false, holdPeek: false,
       // Test mode carries persistent per-passage progress: verses already mastered are
       // pre-filled so a returning user sees them done and can focus on the rest. A Restart
       // (resetMode) sets _typeNoSeed to clear them for a fresh self-test without erasing the
