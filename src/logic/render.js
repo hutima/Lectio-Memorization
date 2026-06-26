@@ -7,8 +7,33 @@
 
   sizeMap = { Tiny: { fs: 'clamp(13px,1.45vw,16px)', lh: 1.7 }, Small: { fs: 'clamp(15px,1.7vw,19px)', lh: 1.8 }, Compact: { fs: 'clamp(17px,2vw,22px)', lh: 1.85 }, Comfortable: { fs: 'clamp(19px,2.4vw,27px)', lh: 1.95 }, Large: { fs: 'clamp(22px,3vw,33px)', lh: 2.0 } };
 
+  // Inline line-icons for the practice-mode tabs. stroke=currentColor so each picks up its
+  // tab's active/inactive text color automatically: eye (hide & reveal / peek), tiles (word
+  // bank), pencil (fill blanks), check-in-circle (test).
+  modeIcon = (name, size = 17) => {
+    const h = React.createElement;
+    const svg = (kids) => h('svg', { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': 'true', style: { flex: 'none', display: 'block' } }, kids);
+    if (name === 'hide') return svg([h('path', { key: 1, d: 'M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z' }), h('circle', { key: 2, cx: 12, cy: 12, r: 3 })]);
+    if (name === 'bank') return svg([h('rect', { key: 1, x: 3, y: 3, width: 7.5, height: 7.5, rx: 1.5 }), h('rect', { key: 2, x: 13.5, y: 3, width: 7.5, height: 7.5, rx: 1.5 }), h('rect', { key: 3, x: 3, y: 13.5, width: 7.5, height: 7.5, rx: 1.5 }), h('rect', { key: 4, x: 13.5, y: 13.5, width: 7.5, height: 7.5, rx: 1.5 })]);
+    if (name === 'hidden') return svg([h('path', { key: 1, d: 'M12 20h9' }), h('path', { key: 2, d: 'M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z' })]);
+    if (name === 'type') return svg([h('circle', { key: 1, cx: 12, cy: 12, r: 9 }), h('path', { key: 2, d: 'M8.5 12.4l2.4 2.4 4.6-5' })]);
+    return null;
+  };
+  // A tab's rendered content: its icon next to its label (the runtime renders React elements
+  // passed as a binding value, so `label` can be this element rather than a plain string).
+  tabContent = (name, label) => React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '6px', minWidth: 0 } }, this.modeIcon(name), React.createElement('span', { style: { overflow: 'hidden', textOverflow: 'ellipsis' } }, label));
+
   renderWord = (s, key) => {
-    const h = React.createElement; if (!s.w) return h('span', { key }, s.text);
+    const h = React.createElement;
+    if (!s.w) {
+      if (s.text.indexOf('\n') < 0) return h('span', { key }, s.text);
+      // A gap holding newline(s) is a hard line/paragraph break (poetry lines, ¶ marks, or
+      // Lord's Prayer clauses): render any leading punctuation, then one <br> per newline.
+      // Non-words are handled here, before the mode dispatch, so every mode breaks alike.
+      const parts = s.text.split('\n'); const kids = [];
+      parts.forEach((g, i) => { if (i) kids.push(h('br', { key: 'b' + i })); if (g) kids.push(g); });
+      return h('span', { key }, kids);
+    }
     const vi = s.vi, mode = this.state.mode;
     if (this.state.revealAllNow) return h('span', { key, style: { color: 'var(--accent)' } }, s.text);
     if (mode === 'hide') return this.renderWord_hide(s, key);
@@ -43,7 +68,10 @@
     }
     const out = [];
     p.verses.forEach((v, vi) => {
-      if (vi > 0) out.push(h('span', { key: 'sp' + vi }, ' '));
+      // `pbr` opens a new paragraph (a small vertical gap — KJV pilcrows); `br` starts a new
+      // poetic line; otherwise verses flow inline separated by a space.
+      if (vi > 0) out.push(v.pbr ? h('span', { key: 'sp' + vi, style: { display: 'block', height: '0.6em' } })
+        : v.br ? h('br', { key: 'sp' + vi }) : h('span', { key: 'sp' + vi }, ' '));
       if (this.state.showVerseNums && v.num != null) out.push(h('sup', { key: 'vn' + vi, style: { fontSize: '0.6em', color: 'var(--muted)', fontWeight: 700, marginRight: '3px', fontFamily: "'Noto Sans',sans-serif" } }, v.num));
       v.segs.forEach((s, si) => out.push(this.renderWord(s, vi + '_' + si)));
     });
@@ -175,8 +203,8 @@
 
       // mode selector: a full-width 3-way segmented toggle (no typing → no keyboard
       // concerns) plus a distinct, full-width "Test" button broken out below it.
-      modeTabs: [['hide', 'Hide & reveal'], ['bank', 'Word bank'], ['hidden', 'Fill blanks']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.modeSeg(id === st.mode) })),
-      selectTest: () => this.setMode('type'), testTabStyle: this.testTab(st.mode === 'type'),
+      modeTabs: [['hide', 'Hide & reveal'], ['bank', 'Word bank'], ['hidden', 'Fill blanks']].map(([id, label]) => ({ label: this.tabContent(id, label), onClick: () => this.setMode(id), style: this.modeSeg(id === st.mode) })),
+      selectTest: () => this.setMode('type'), testTabStyle: this.testTab(st.mode === 'type'), testContent: this.tabContent('type', 'Test'),
 
       // passage. While focused on a single verse, the picker header still shows the whole
       // chapter (the active selection) — the focused verse is named in the verse-by-verse bar.

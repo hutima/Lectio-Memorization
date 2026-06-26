@@ -74,6 +74,11 @@
   // transform never has to re-parse ~160KB of text. Each doc is either a `creed`
   // (paras: string[]) or a `catechism` (items: {n, q, a}[]). See src/creeds.json.
   CREEDS = (typeof window !== 'undefined' && window.LECTIO_CREEDS) || [];
+  // KJV paragraph (pilcrow ¶) positions, injected by build.mjs as window.LECTIO_KJVPARA
+  // (built by scripts/build-kjv-paragraphs.mjs): { <bookId>: { <chapter>: [<verse>, …] } }.
+  // buildPassage marks the verses that begin a paragraph so KJV prose reads in paragraphs.
+  // (The printed 1769 pilcrows stop after Acts 20:36, so later books simply have none.)
+  KJV_PARA = (typeof window !== 'undefined' && window.LECTIO_KJVPARA) || {};
 
   componentDidMount() {
     const g = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } };
@@ -282,6 +287,11 @@
   // catechism question labels in the picker dropdown.
   truncate = (s, n) => { s = (s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
   bookIndex = (name) => this.BOOKS.findIndex((b) => b.name === name) + 1;
+  // Normalize verse/creed text for layout: collapse runs of spaces/tabs to a single space
+  // but PRESERVE newlines as hard line breaks (poetry lines, paragraph breaks, Lord's Prayer
+  // clauses) so renderWord can emit <br>s. A ¶ pilcrow (KJV-style paragraph mark) becomes a
+  // paragraph break; spaces around each break are trimmed and 3+ blank lines collapse to one.
+  normText = (s) => (s || '').replace(/\r/g, '').replace(/¶/g, '\n\n').replace(/[^\S\n]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/^\s+|\s+$/g, '');
   splitSegs = (text) => {
     text = (text || '').normalize('NFC');
     const out = []; const re = /[\p{L}\p{N}][\p{L}\p{N}\p{M}]*(?:['’\-][\p{L}\p{N}\p{M}]*)*/gu; let last = 0, m;
@@ -293,13 +303,35 @@
   // non-practiced heading above the verse; only `text` words become practice words.
   // opts carries non-Scripture metadata (kind/attribution/title) used for layout +
   // the copyright line; it is absent (→ nulls) for ordinary Bible passages.
+  // KJV poetry is set as parallel cola separated by the edition's own colon (with a secondary
+  // semicolon): "The LORD is my shepherd; I shall not want." We break the poetry books on
+  // those marks so each parallel line stands alone, and start every verse on its own line.
+  // ESV carries its own lineation; prose books and creeds are left flowing.
+  POETRY_REF = /^(?:Job|Psalms?|Proverbs|Ecclesiastes|Song of Solomon|Lamentations)\b/;
+  isPoetryRef = (reference) => this.POETRY_REF.test(this.fixBookName(reference || ''));
+  // KJV layout: lineate poetry at the edition's parallelism colon/semicolon (each verse on
+  // its own line — br), and open a new paragraph at the 1769 pilcrow positions (KJV_PARA — pbr).
+  // ESV brings its own lineation; prose books and creeds are left flowing.
+  formatKjv = (reference, verses) => {
+    const poetry = this.isPoetryRef(reference);
+    const pr = this.parseRef(reference);
+    const starts = (pr && pr.ch != null && this.KJV_PARA[pr.bi + 1] && this.KJV_PARA[pr.bi + 1][pr.ch]) || null;
+    if (!poetry && !starts) return verses;
+    return verses.map((v, i) => ({
+      ...v,
+      text: poetry ? (v.text || '').replace(/([;:])[^\S\n]+/g, '$1\n') : v.text,
+      br: (poetry && i > 0) || !!v.br,
+      pbr: (!!starts && starts.indexOf(v.num) !== -1) || !!v.pbr,
+    }));
+  };
   buildPassage = (reference, version, verses, opts = {}) => {
     reference = this.fixBookName(reference);
+    if (version === 'KJV' && !opts.kind) verses = this.formatKjv(reference, verses);
     let vi = 0; const words = [];
     const vs = verses.map((v, vIdx) => {
-      const segs = this.splitSegs((v.text || '').replace(/\s+/g, ' ').trim());
+      const segs = this.splitSegs(this.normText(v.text));
       segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vIdx }); vi++; } });
-      return { num: v.num, head: v.head || null, segs };
+      return { num: v.num, head: v.head || null, br: !!v.br, pbr: !!v.pbr, segs };
     });
     // Scripture passages append the reference as a final memory line ("Psalm 23:1 to 5")
     // so it's practiced along with the text in every mode — its words join the flat
@@ -317,10 +349,13 @@
     const parts = text.split(/\[(\d+)\]/); const verses = [];
     for (let i = 1; i < parts.length; i += 2) {
       const num = parseInt(parts[i], 10);
-      const t = (parts[i + 1] || '').replace(/\s+/g, ' ').trim();
-      if (t) verses.push({ num, text: t });
+      const t = this.normText(parts[i + 1]);
+      // The ESV text endpoint lineates poetry (and paragraphs) with newlines; a newline just
+      // before this verse's number marker means the verse begins a new poetic line/paragraph.
+      const br = /\n[^\S\n]*$/.test(parts[i - 1] || '');
+      if (t) verses.push({ num, text: t, br });
     }
-    if (!verses.length) { const t = text.replace(/\s+/g, ' ').trim(); if (t) verses.push({ num: 1, text: t }); }
+    if (!verses.length) { const t = this.normText(text); if (t) verses.push({ num: 1, text: t }); }
     return verses;
   };
 
