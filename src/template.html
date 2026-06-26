@@ -2,7 +2,7 @@
 
 <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:0 16px calc(40px + env(safe-area-inset-bottom));">
 
-  <div style="width:100%;max-width:800px;position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);">
+  <div style="{{ headerWrapStyle }}">
     <header style="padding:14px 0 12px;display:flex;align-items:center;gap:12px;">
       <div onClick="{{ goHome }}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;cursor:pointer;">
         <div style="width:32px;height:32px;border-radius:9px;background:var(--accent);display:flex;align-items:center;justify-content:center;color:#fbf8f1;font-family:'Gentium Book Plus',serif;font-size:21px;line-height:1;flex:none;">L</div>
@@ -15,37 +15,37 @@
       <button onClick="{{ openStats }}" style="{{ chromeBtn }}">Progress</button>
       <button onClick="{{ openSettings }}" style="{{ chromeBtn }}">Settings</button>
     </header>
-
-    <sc-if value="{{ showTopBar }}" hint-placeholder-val="{{ false }}">
-      <div style="{{ footerStyle }}">
-        <div style="{{ footerInner }}">
-
-          <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-              <button onClick="{{ revealFillWord }}" style="{{ ghostBtn }}">Reveal word</button>
-              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
-              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-              <span style="flex:1;"></span>
-              <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
-            </div>
-          </sc-if>
-
-          <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-              <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
-              <button onClick="{{ revealTypeWord }}" style="{{ ghostBtn }}">Reveal word</button>
-              <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
-              <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
-              <span style="flex:1;"></span>
-              <span style="font-size:13px;color:var(--muted);">{{ typeStatus }}</span>
-            </div>
-          </sc-if>
-
-        </div>
-      </div>
-    </sc-if>
   </div>
+
+  <sc-if value="{{ showTopBar }}" hint-placeholder-val="{{ false }}">
+    <div style="{{ pinnedBarWrapStyle }}">
+      <div style="{{ footerInner }}">
+
+        <sc-if value="{{ isHidden }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+            <button onClick="{{ revealFillWord }}" style="{{ ghostBtn }}">Reveal word</button>
+            <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Reset</button>
+            <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+            <span style="flex:1;"></span>
+            <span style="font-size:13px;color:var(--muted);">{{ fillStatus }}</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isType }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ toggleHints }}" style="{{ hintsBtn }}">{{ hintsLabel }}</button>
+            <button onClick="{{ revealTypeWord }}" style="{{ ghostBtn }}">Reveal word</button>
+            <button onClick="{{ resetMode }}" style="{{ ghostBtn }}">Restart</button>
+            <button onClick="{{ toggleRevealAll }}" style="{{ ghostBtn }}">{{ revealAllLabel }}</button>
+            <span style="flex:1;"></span>
+            <span style="font-size:13px;color:var(--muted);">{{ typeStatus }}</span>
+          </div>
+        </sc-if>
+
+      </div>
+    </div>
+  </sc-if>
 
   <main style="width:100%;max-width:800px;display:flex;flex-direction:column;gap:16px;padding-top:18px;">
 

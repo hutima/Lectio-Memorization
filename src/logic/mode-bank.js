@@ -132,6 +132,7 @@
       const choice = { ...this.state.bankChoice, [vi]: opt }; const miss = { ...this.state.bankMiss }; delete miss[vi];
       const nx = this.nextBlank(vi);
       this.setState({ bankChoice: choice, bankMiss: miss, bankActive: nx != null ? nx : vi }, () => {
+        this.recordVerseRecall([vi]);
         if (nx != null) { this.ensureOptions(); this.scrollActive(); }
         this.checkBankMcDone();
       });
@@ -147,9 +148,13 @@
   // ---- shuffled-tray sub-mode (every word blank) ----
   // Drop the tapped token into the first empty slot, in reading order.
   placeBank = (id) => {
-    const blanks = this.state.blankList; const fill = { ...this.state.bankFill };
+    const blanks = this.state.blankList; const fill = { ...this.state.bankFill }; const p = this.state.passage;
     const slot = blanks.find((vi) => fill[vi] == null); if (slot == null) return;
-    fill[slot] = id; this.setState({ bankFill: fill }, () => { this.scrollActive(); this.checkBankDone(); });
+    fill[slot] = id; this.setState({ bankFill: fill }, () => {
+      // A correctly placed tile is a word recalled from memory — credit the verse's completion.
+      if (p && this.state.bank && this.norm(this.state.bank.items[id].text) === this.norm(p.words[slot].text)) this.recordVerseRecall([slot]);
+      this.scrollActive(); this.checkBankDone();
+    });
   };
   unplace = (vi) => { const fill = { ...this.state.bankFill }; delete fill[vi]; this.setState({ bankFill: fill }); };
   checkBankDone = () => {

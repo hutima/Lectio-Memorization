@@ -850,6 +850,39 @@
     this.setState({ progress: prog }); try { localStorage.setItem('lectio.progress', JSON.stringify(prog)); } catch (e) {}
     if (!opts.silent) this.markPracticed();
   };
+  // Map the current passage's words to their verse position + index within that verse:
+  // { map: { [vi]: { v, local, n } }, refV } where v is the 0-based verse position (matching
+  // buildPassage's word.v and the canon mapping), local is the word's index inside its verse,
+  // n the verse's word count, and refV the appended reference-line group (which the canon map
+  // ignores). Used to accumulate per-word recall into a verse's completion.
+  passageVerseMap = () => {
+    const p = this.state.passage; if (!p) return null;
+    const groups = {}; p.words.forEach((w) => { (groups[w.v] = groups[w.v] || []).push(w.vi); });
+    const map = {};
+    Object.keys(groups).forEach((v) => { const arr = groups[v]; arr.forEach((vi, local) => { map[vi] = { v: Number(v), local, n: arr.length }; }); });
+    return { map, refV: p.verses.length };
+  };
+  // Record which words were recalled from memory (correct blanks/placed words), accumulating
+  // the UNION per verse so reshuffled blanks build a verse up over several passes. Stored on
+  // the passage's progress entry as verseRecall { [versePos]: { n, w:[localIdx,...] } } and read
+  // back by verseStatus to colour the canon map by how complete each verse is. Test mode uses
+  // its own per-verse % (verseKnown); the other graded modes call this with their correct words.
+  recordVerseRecall = (vis) => {
+    if (!vis || !vis.length) return;
+    const key = this.passageKey(); if (!key) return;
+    const vm = this.passageVerseMap(); if (!vm) return;
+    const prog = { ...this.state.progress }; const cur = { ...(prog[key] || { best: 0, learned: false, attempts: 0 }) };
+    const vr = { ...(cur.verseRecall || {}) }; let changed = false;
+    vis.forEach((vi) => {
+      const m = vm.map[vi]; if (!m) return;
+      const prev = vr[m.v]; const w = prev ? prev.w.slice() : [];
+      if (w.indexOf(m.local) === -1) { w.push(m.local); changed = true; }
+      vr[m.v] = { n: m.n, w };
+    });
+    if (!changed) return;
+    cur.verseRecall = vr; prog[key] = cur;
+    this.setState({ progress: prog }); try { localStorage.setItem('lectio.progress', JSON.stringify(prog)); } catch (e) {}
+  };
   markPracticed = () => {
     const today = new Date().toISOString().slice(0, 10);
     this.bumpActivity(today);
@@ -997,6 +1030,17 @@
       const vk = { ...(a.verseKnown || {}) }; const bv = b.verseKnown || {};
       for (const k in bv) vk[k] = Math.max(vk[k] || 0, Number(bv[k]) || 0);
       e.verseKnown = vk;
+    }
+    // Per-word recall accumulates as a union per verse, so merging two devices keeps every
+    // word either side recalled (and the larger verse word-count if they ever disagree).
+    if ((a.verseRecall && typeof a.verseRecall === 'object') || (b.verseRecall && typeof b.verseRecall === 'object')) {
+      const av = a.verseRecall || {}, bvr = b.verseRecall || {}; const vr = {};
+      Object.keys(av).concat(Object.keys(bvr)).forEach((k) => {
+        if (vr[k]) return; const ae = av[k] || {}, be = bvr[k] || {};
+        const w = Array.from(new Set([...(ae.w || []), ...(be.w || [])]));
+        vr[k] = { n: Math.max(ae.n || 0, be.n || 0) || w.length, w };
+      });
+      e.verseRecall = vr;
     }
     return e;
   };

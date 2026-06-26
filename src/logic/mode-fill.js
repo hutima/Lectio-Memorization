@@ -44,7 +44,9 @@
     // Auto-advance on a trailing space OR as soon as the typed word matches exactly,
     // so a correct blank turns green and hands focus to the next field.
     const exact = cur && this.norm(raw) === this.norm(cur);
-    this.setState({ hiddenVals: { ...this.state.hiddenVals, [vi]: stored }, hiddenReveal: reveal }, () => { if (trailingSpace || exact) this.focusNextBlank(vi); this.checkHiddenDone(); });
+    // A correctly typed blank is a word recalled from memory — add it to the verse's
+    // accumulating completion (the union grows as reshuffled blanks cover more words).
+    this.setState({ hiddenVals: { ...this.state.hiddenVals, [vi]: stored }, hiddenReveal: reveal }, () => { if (exact) this.recordVerseRecall([vi]); if (trailingSpace || exact) this.focusNextBlank(vi); this.checkHiddenDone(); });
   };
   // Reveal the current (focused, else first empty) blank: fill the answer but flag it in
   // hiddenReveal so it counts wrong; then advance to the next blank.
