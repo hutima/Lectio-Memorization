@@ -421,6 +421,24 @@
       bankActive: blanks.length ? blanks[0] : null,
     }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
   };
+  // Re-roll WHICH words are blanked, keeping the current count (blankPct). The ease slider
+  // grows/shrinks a stable nested set off one seed; this draws a fresh seed so the same
+  // percentage lands on a different set of words — a new variation of the same difficulty.
+  // (At "every word blank" there's nothing to vary, so it's a no-op.)
+  reshuffleBlanks = () => {
+    const p = this.state.passage; if (!p || this.allBlank()) return;
+    this._blankSeed = (Math.random() * 0x100000000) >>> 0;
+    const seed = this._blankSeed;
+    const blanks = this.pickBlanks(p.words, this.state.blankPct, seed); const bank = this.buildBank(p, blanks, seed);
+    // Keep the option-cache guard in sync with the bankOpts reset below (see initModes).
+    this._optLoading = {};
+    this.setState({
+      blankList: blanks, bank,
+      hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
+      bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
+      bankActive: blanks.length ? blanks[0] : null,
+    }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
+  };
 
   // ---------- verse-by-verse study ----------
   // When a whole chapter (or any multi-verse Scripture passage) is on screen, you can
