@@ -403,7 +403,7 @@ input[type=range]{accent-color:var(--accent);}
           <div style="display:flex;flex-direction:column;gap:6px;">
             <div style="font-size:12px;color:var(--muted);">Size</div>
             <div style="display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;align-self:flex-start;flex-wrap:wrap;">
-              <sc-for list="{{ sizeOpts }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for>
+              <sc-for list="{{ sizeOpts }}" as="o" hint-placeholder-count="5"><button onClick="{{ o.onClick }}" style="{{ o.style }}">{{ o.label }}</button></sc-for>
             </div>
           </div>
           <div style="{{ scripturePreviewStyle }}">For God so loved the world.</div>
@@ -498,7 +498,7 @@ input[type=range]{accent-color:var(--accent);}
   &quot;$preview&quot;: { &quot;width&quot;: 430, &quot;height&quot;: 860 },
   &quot;defaultMode&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;hide&quot;, &quot;hidden&quot;, &quot;bank&quot;, &quot;type&quot;], &quot;default&quot;: &quot;hide&quot;, &quot;tsType&quot;: &quot;\&quot;hide\&quot;|\&quot;hidden\&quot;|\&quot;bank\&quot;|\&quot;type\&quot;&quot; },
   &quot;defaultVersion&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;ESV&quot;, &quot;KJV&quot;], &quot;default&quot;: &quot;KJV&quot;, &quot;tsType&quot;: &quot;\&quot;ESV\&quot;|\&quot;KJV\&quot;&quot; },
-  &quot;scriptureSize&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Compact&quot;, &quot;Comfortable&quot;, &quot;Large&quot;], &quot;default&quot;: &quot;Comfortable&quot;, &quot;tsType&quot;: &quot;\&quot;Compact\&quot;|\&quot;Comfortable\&quot;|\&quot;Large\&quot;&quot; },
+  &quot;scriptureSize&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;Tiny&quot;, &quot;Small&quot;, &quot;Compact&quot;, &quot;Comfortable&quot;, &quot;Large&quot;], &quot;default&quot;: &quot;Comfortable&quot;, &quot;tsType&quot;: &quot;\&quot;Tiny\&quot;|\&quot;Small\&quot;|\&quot;Compact\&quot;|\&quot;Comfortable\&quot;|\&quot;Large\&quot;&quot; },
   &quot;scriptureFont&quot;: { &quot;editor&quot;: &quot;enum&quot;, &quot;options&quot;: [&quot;serif&quot;, &quot;sans&quot;], &quot;default&quot;: &quot;serif&quot;, &quot;tsType&quot;: &quot;\&quot;serif\&quot;|\&quot;sans\&quot;&quot; },
   &quot;showVerseNumbers&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot; },
   &quot;hintsDefault&quot;: { &quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;tsType&quot;: &quot;boolean&quot; }
@@ -853,6 +853,12 @@ class Component extends DCLogic {
     // Reset the per-test "already counted as practice" flag so the next Test attempt
     // bumps the streak/heatmap once, then refines its partial score silently.
     this._typeScored = false;
+    // bankOpts (the per-blank option cache) is reset in the setState below; its companion
+    // in-flight guard `_optLoading` lives on the instance, so it must be reset in lockstep.
+    // Otherwise a word index that was loaded for a previous passage stays flagged, and the
+    // matching blank in the new passage never repopulates options — the "Finding similar
+    // words…" spinner hangs forever (notably the first one or two blanks after a switch).
+    this._optLoading = {};
     this.setState({
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
@@ -870,6 +876,8 @@ class Component extends DCLogic {
     const pct = parseFloat(e.target.value); const p = this.state.passage; if (!p) { this.setState({ blankPct: pct }); return; }
     const seed = this.hash(p.reference + '|' + p.words.length);
     const blanks = this.pickBlanks(p.words, pct, seed); const bank = this.buildBank(p, blanks, seed);
+    // Keep the option-cache guard in sync with the bankOpts reset below (see initModes).
+    this._optLoading = {};
     this.setState({
       blankPct: pct, blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
@@ -1527,8 +1535,10 @@ class Component extends DCLogic {
   ensureOptions = () => { const vi = this.state.bankActive; if (vi == null) return; this.loadOptions(vi); const nx = this.nextBlank(vi); if (nx != null) this.loadOptions(nx); };
   loadOptions = async (vi) => {
     if (vi == null || this.state.bankOpts[vi]) return;
-    const lo = this._optLoading || (this._optLoading = {}); if (lo[vi]) return; lo[vi] = true;
     const p = this.state.passage; if (!p) return;
+    // Mark in-flight only once we're committed to loading (passage present) so a null
+    // passage can't strand the guard and leave the blank stuck on the spinner.
+    const lo = this._optLoading || (this._optLoading = {}); if (lo[vi]) return; lo[vi] = true;
     const correct = p.words[vi].text; const seed = this.hash(p.reference + '|opt|' + vi);
     // Greek text: the Datamuse lookups and the English POS pool are meaningless here, so
     // draw decoys from real Greek lexemes (same-case where possible) instead — and skip
@@ -1543,6 +1553,10 @@ class Component extends DCLogic {
       this.fetchJson('https://api.datamuse.com/words?ml=' + q + '&md=pf&max=30', 2000),
       this.fetchJson('https://api.datamuse.com/words?sp=' + q + '&md=p&max=1', 2000),
     ]);
+    // The passage may have changed while this fetch was in flight (a switch resets the
+    // option cache + its in-flight guard); dropping the stale result keeps us from writing
+    // the previous word's distractors onto the new passage's blank.
+    if (this.state.passage !== p) return;
     const targetPos = posData && posData[0] ? this.posOf(posData[0].tags) : null;
     const opts = this.buildOptions(correct, (sim && sim.length ? sim : null), targetPos, seed);
     this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: opts } });
@@ -2255,7 +2269,7 @@ class Component extends DCLogic {
   // vals_* footer values with the shared chrome/picker/status values).
   // ============================================================================
 
-  sizeMap = { Compact: { fs: 'clamp(17px,2vw,22px)', lh: 1.85 }, Comfortable: { fs: 'clamp(19px,2.4vw,27px)', lh: 1.95 }, Large: { fs: 'clamp(22px,3vw,33px)', lh: 2.0 } };
+  sizeMap = { Tiny: { fs: 'clamp(13px,1.45vw,16px)', lh: 1.7 }, Small: { fs: 'clamp(15px,1.7vw,19px)', lh: 1.8 }, Compact: { fs: 'clamp(17px,2vw,22px)', lh: 1.85 }, Comfortable: { fs: 'clamp(19px,2.4vw,27px)', lh: 1.95 }, Large: { fs: 'clamp(22px,3vw,33px)', lh: 2.0 } };
 
   renderWord = (s, key) => {
     const h = React.createElement; if (!s.w) return h('span', { key }, s.text);
@@ -2478,7 +2492,7 @@ class Component extends DCLogic {
       // Scripture display: font family (serif/sans) + size. Both persist; size drives
       // font-size, so it scales the passage and its inline inputs without CSS zoom.
       fontOpts: [['serif', 'Serif'], ['sans', 'Sans']].map(([id, label]) => ({ label, onClick: () => this.setScriptureFont(id), style: this.seg(id === st.scriptureFont) })),
-      sizeOpts: ['Compact', 'Comfortable', 'Large'].map((s) => ({ label: s, onClick: () => this.setScriptureSize(s), style: this.seg(s === st.scriptureSize) })),
+      sizeOpts: ['Tiny', 'Small', 'Compact', 'Comfortable', 'Large'].map((s) => ({ label: s, onClick: () => this.setScriptureSize(s), style: this.seg(s === st.scriptureSize) })),
       scripturePreviewStyle: { fontFamily: this.scriptFont(), fontSize: (this.sizeMap[st.scriptureSize] || this.sizeMap.Comfortable).fs, lineHeight: 1.4, color: 'var(--text)', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--line)', borderRadius: '10px' },
       toggleReminder: this.toggleReminder, reminderBtn: this.toggleBtn(st.reminderOn), reminderLabel: st.reminderOn ? 'On' : 'Off',
       cacheStatus: st.cacheCount + (st.cacheCount === 1 ? ' ESV verse cached.' : ' ESV verses cached.'),
