@@ -20,7 +20,11 @@
     }
   };
   onBlankKey = (vi, e) => {
-    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevBlank(vi); }
+    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevBlank(vi); return; }
+    // A space typed into an empty blank is redundant — a correct word already auto-advanced
+    // here, so swallow it rather than insert a leading space (which would also read as a
+    // trailing space and skip the blank). Mistyped blanks still take a manual space to move on.
+    if ((e.key === ' ' || e.key === 'Spacebar') && e.target.value === '') e.preventDefault();
   };
   onBlankChange = (vi, val) => {
     const p = this.state.passage; const cur = p ? p.words[vi].text : '';

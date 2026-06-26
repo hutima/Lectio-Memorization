@@ -2,8 +2,7 @@
   // mode-type.js — "Test" practice mode (class-body fragment; see core.js).
   // The hardest mode: every word is a blank, typed inline in the text. It behaves
   // like "Fill blanks" locked to all words — there is no separate input field.
-  // A trailing SPACE advances to the next word (finishing a word's letters does NOT
-  // auto-jump — each word is committed deliberately, a truer test of recall); Backspace
+  // A correct word auto-advances to the next blank (so does a trailing SPACE); Backspace
   // on an empty field steps back to the previous word so a slip can be corrected;
   // tapping any word jumps the cursor there. "Reveal word" fills the current word but
   // counts it wrong. Each word's value lives in typeVals; revealed words in typeReveal.
@@ -25,7 +24,11 @@
     }
   };
   onTypeKey = (vi, e) => {
-    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevType(vi); }
+    if (e.key === 'Backspace' && e.target.value === '') { e.preventDefault(); this.focusPrevType(vi); return; }
+    // A space typed into an empty field is redundant — a correct word already auto-advanced
+    // here, so swallow the space rather than insert a leading one (which would also count as
+    // a trailing space and skip the word). Only words you actually mistype need a manual space.
+    if ((e.key === ' ' || e.key === 'Spacebar') && e.target.value === '') e.preventDefault();
   };
   onTypeChange = (vi, val) => {
     const p = this.state.passage; const cur = p ? p.words[vi].text : '';
@@ -34,8 +37,11 @@
     const stored = cur && this.norm(raw) === this.norm(cur) ? cur : raw;
     // Typing reclaims a previously revealed word so it can count toward the score again.
     const reveal = { ...this.state.typeReveal }; if (reveal[vi]) delete reveal[vi];
-    // Advance ONLY on a trailing space — completing a word's letters must not auto-jump.
-    this.setState({ typeVals: { ...this.state.typeVals, [vi]: stored }, typeReveal: reveal }, () => { if (trailingSpace) this.focusNextType(vi); this.checkTypeDone(); });
+    // Advance on a trailing space OR as soon as the typed word matches exactly, so a correct
+    // word turns green and hands focus on. A habitual space on the now-empty next field is
+    // swallowed by onTypeKey, so it can't skip a word.
+    const exact = cur && this.norm(raw) === this.norm(cur);
+    this.setState({ typeVals: { ...this.state.typeVals, [vi]: stored }, typeReveal: reveal }, () => { if (trailingSpace || exact) this.focusNextType(vi); this.checkTypeDone(); });
   };
   // Reveal the current (focused, else first empty) word: fill the answer but flag it in
   // typeReveal so it counts wrong; then advance. This lowers the recorded "known %".
