@@ -62,7 +62,7 @@ JSON.parse(props);
 const html =
   '<!DOCTYPE html>\n<html>\n<head>\n' +
   '<meta charset="utf-8">\n' +
-  '<meta name="viewport" content="width=device-width, initial-scale=1">\n' +
+  '<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">\n' +
   '<script src="./support.js"></script>\n' +
   '</head>\n<body>\n' +
   '<x-dc>\n' +
