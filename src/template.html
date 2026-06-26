@@ -379,6 +379,16 @@
         </div>
 
         <div style="display:flex;flex-direction:column;gap:8px;">
+          <div style="font-weight:600;font-size:14px;">Backup &amp; restore</div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5;">Save your progress, streak, and history to a JSON file, or load one from another device. Importing merges with what’s already here and never lowers a score.</div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <button onClick="{{ exportProgress }}" style="{{ ghostBtn }}">Export progress</button>
+            <button onClick="{{ importProgress }}" style="{{ ghostBtn }}">Import progress</button>
+            <span style="font-size:12px;color:var(--muted);">{{ dataMsg }}</span>
+          </div>
+        </div>
+
+        <div style="display:flex;flex-direction:column;gap:8px;">
           <div style="font-weight:600;font-size:14px;">Cached Scripture</div>
           <div style="font-size:12px;color:var(--muted);line-height:1.5;">{{ cacheStatus }} The count is ESV only — ESV terms allow caching up to 500 verses. King James and Greek (public domain) are also cached, but uncounted. Clearing removes <em>all</em> cached versions and refreshes to the latest text next time.</div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;">

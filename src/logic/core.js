@@ -32,7 +32,7 @@
     typeVals: {}, typeReveal: {}, typeActive: null,
     progress: {}, streak: { count: 0, last: null, best: 0 }, seen: [], history: {},
     cacheCount: 0, usageToday: 0,
-    updateReady: false, updateMsg: '',
+    updateReady: false, updateMsg: '', dataMsg: '',
     kbInset: 0,
     canonOpen: {},
     loadedSig: null,
@@ -855,7 +855,7 @@
   };
 
   // ---------- settings ----------
-  openSettings = () => this.setState({ settingsOpen: true, updateMsg: '' });
+  openSettings = () => this.setState({ settingsOpen: true, updateMsg: '', dataMsg: '' });
   closeSettings = () => this.setState({ settingsOpen: false });
   openCopyright = () => this.setState({ copyrightOpen: true });
   closeCopyright = () => this.setState({ copyrightOpen: false });
@@ -875,6 +875,102 @@
       if (s.last === today) return;
       if ('Notification' in window && Notification.permission === 'granted') new Notification('Lectio', { body: 'Take a few minutes to hide his word in your heart today.' });
     } catch (e) {}
+  };
+
+  // ---------- backup & restore ----------
+  // Progress lives in four localStorage keys (progress / streak / history / seen).
+  // Export bundles them into a single JSON file; import merges that file back in.
+  // The ESV token and other device settings are deliberately left out — this is a
+  // transferable record of what you've learned, not a clone of the device.
+  PROGRESS_KEYS = ['progress', 'streak', 'history', 'seen'];
+  exportProgress = () => {
+    const payload = {
+      app: 'lectio', kind: 'progress', version: 1,
+      exportedAt: new Date().toISOString(),
+      data: {
+        progress: this.state.progress || {},
+        streak: this.state.streak || { count: 0, last: null, best: 0 },
+        history: this.state.history || {},
+        seen: this.state.seen || [],
+      },
+    };
+    try {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'lectio-progress-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      this.setState({ dataMsg: 'Progress exported.' });
+    } catch (e) { this.setState({ dataMsg: 'Couldn’t export on this device.' }); }
+  };
+  importProgress = () => {
+    try {
+      const input = document.createElement('input');
+      input.type = 'file'; input.accept = 'application/json,.json';
+      input.onchange = () => {
+        const file = input.files && input.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => this.applyImport(reader.result);
+        reader.onerror = () => this.setState({ dataMsg: 'Couldn’t read that file.' });
+        reader.readAsText(file);
+      };
+      input.click();
+    } catch (e) { this.setState({ dataMsg: 'Import isn’t available here.' }); }
+  };
+  applyImport = (text) => {
+    let obj; try { obj = JSON.parse(text); } catch (e) { this.setState({ dataMsg: 'That file isn’t valid JSON.' }); return; }
+    const d = (obj && obj.data && typeof obj.data === 'object') ? obj.data : obj;
+    if (!d || typeof d !== 'object' || (!d.progress && !d.history && !d.seen && !d.streak)) {
+      this.setState({ dataMsg: 'That doesn’t look like a Lectio progress file.' }); return;
+    }
+    // Merge, never overwrite: imports combine with what's already here and never lower a
+    // score — so restoring a backup or pulling in a second device both add, never erase.
+    const inProg = (d.progress && typeof d.progress === 'object') ? d.progress : {};
+    const progress = { ...(this.state.progress || {}) };
+    let added = 0;
+    for (const k in inProg) {
+      const b = inProg[k]; if (!b || typeof b !== 'object') continue;
+      const a = progress[k];
+      if (!a) added++;
+      progress[k] = this.mergeProgressEntry(a || {}, b);
+    }
+    // History (per-day heatmap counts): take the larger count for any shared day so a
+    // re-import of the same backup doesn't double-count.
+    const history = { ...(this.state.history || {}) };
+    const inHist = (d.history && typeof d.history === 'object') ? d.history : {};
+    for (const day in inHist) history[day] = Math.max(history[day] || 0, Number(inHist[day]) || 0);
+    // Seen references: union.
+    const seenSet = {}; (this.state.seen || []).forEach((r) => { seenSet[r] = 1; });
+    if (Array.isArray(d.seen)) d.seen.forEach((r) => { if (r) seenSet[r] = 1; });
+    const seen = Object.keys(seenSet);
+    // Streak: keep the longer best; adopt the more recent last-practiced day + its count.
+    const a = this.state.streak || { count: 0, last: null, best: 0 };
+    const b = (d.streak && typeof d.streak === 'object') ? d.streak : {};
+    const streak = (b.last && (!a.last || b.last > a.last)) ? { ...b } : { ...a };
+    streak.best = Math.max(a.best || 0, b.best || 0, streak.count || 0);
+    this.setState({ progress, history, seen, streak });
+    try {
+      localStorage.setItem('lectio.progress', JSON.stringify(progress));
+      localStorage.setItem('lectio.history', JSON.stringify(history));
+      localStorage.setItem('lectio.seen', JSON.stringify(seen));
+      localStorage.setItem('lectio.streak', JSON.stringify(streak));
+    } catch (e) {}
+    const total = Object.keys(inProg).length;
+    this.setState({ dataMsg: 'Imported ' + total + (total === 1 ? ' passage' : ' passages') + (added ? ' (' + added + ' new).' : '.') });
+  };
+  mergeProgressEntry = (a, b) => {
+    const e = { ...a };
+    e.best = Math.max(a.best || 0, b.best || 0);
+    if (a.known != null || b.known != null) e.known = Math.max(a.known || 0, b.known || 0);
+    e.learned = !!(a.learned || b.learned);
+    e.attempts = Math.max(a.attempts || 0, b.attempts || 0);
+    if ((a.verseKnown && typeof a.verseKnown === 'object') || (b.verseKnown && typeof b.verseKnown === 'object')) {
+      const vk = { ...(a.verseKnown || {}) }; const bv = b.verseKnown || {};
+      for (const k in bv) vk[k] = Math.max(vk[k] || 0, Number(bv[k]) || 0);
+      e.verseKnown = vk;
+    }
+    return e;
   };
 
   // ---------- style helpers ----------
