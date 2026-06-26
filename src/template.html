@@ -62,7 +62,7 @@
         <div style="display:flex;gap:3px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;">
           <sc-for list="{{ modeTabs }}" as="t" hint-placeholder-count="3"><button onClick="{{ t.onClick }}" style="{{ t.style }}">{{ t.label }}</button></sc-for>
         </div>
-        <button onClick="{{ selectTest }}" style="{{ testTabStyle }}">Test</button>
+        <button onClick="{{ selectTest }}" style="{{ testTabStyle }}">{{ testContent }}</button>
       </div>
     </sc-if>
 

@@ -10,18 +10,18 @@
         "id": "en",
         "label": "English",
         "paras": [
-          "Our Father, who art in heaven, hallowed be thy name. Thy kingdom come. Thy will be done, on earth as it is in heaven.",
-          "Give us this day our daily bread. And forgive us our trespasses, as we forgive those who trespass against us. And lead us not into temptation, but deliver us from evil.",
-          "For thine is the kingdom, and the power, and the glory, for ever and ever. Amen."
+          "Our Father, who art in heaven,\nhallowed be thy name.\nThy kingdom come.\nThy will be done,\non earth as it is in heaven.",
+          "Give us this day our daily bread.\nAnd forgive us our trespasses,\nas we forgive those who trespass against us.\nAnd lead us not into temptation,\nbut deliver us from evil.",
+          "For thine is the kingdom, and the power, and the glory,\nfor ever and ever.\nAmen."
         ]
       },
       {
         "id": "el",
         "label": "Greek",
         "paras": [
-          "Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς, ἁγιασθήτω τὸ ὄνομά σου· ἐλθέτω ἡ βασιλεία σου· γενηθήτω τὸ θέλημά σου, ὡς ἐν οὐρανῷ καὶ ἐπὶ τῆς γῆς.",
-          "Τὸν ἄρτον ἡμῶν τὸν ἐπιούσιον δὸς ἡμῖν σήμερον· καὶ ἄφες ἡμῖν τὰ ὀφειλήματα ἡμῶν, ὡς καὶ ἡμεῖς ἀφίεμεν τοῖς ὀφειλέταις ἡμῶν· καὶ μὴ εἰσενέγκῃς ἡμᾶς εἰς πειρασμόν, ἀλλὰ ῥῦσαι ἡμᾶς ἀπὸ τοῦ πονηροῦ.",
-          "Ὅτι σοῦ ἐστιν ἡ βασιλεία καὶ ἡ δύναμις καὶ ἡ δόξα εἰς τοὺς αἰῶνας. Ἀμήν."
+          "Πάτερ ἡμῶν ὁ ἐν τοῖς οὐρανοῖς,\nἁγιασθήτω τὸ ὄνομά σου·\nἐλθέτω ἡ βασιλεία σου·\nγενηθήτω τὸ θέλημά σου,\nὡς ἐν οὐρανῷ καὶ ἐπὶ τῆς γῆς.",
+          "Τὸν ἄρτον ἡμῶν τὸν ἐπιούσιον δὸς ἡμῖν σήμερον·\nκαὶ ἄφες ἡμῖν τὰ ὀφειλήματα ἡμῶν,\nὡς καὶ ἡμεῖς ἀφίεμεν τοῖς ὀφειλέταις ἡμῶν·\nκαὶ μὴ εἰσενέγκῃς ἡμᾶς εἰς πειρασμόν,\nἀλλὰ ῥῦσαι ἡμᾶς ἀπὸ τοῦ πονηροῦ.",
+          "Ὅτι σοῦ ἐστιν ἡ βασιλεία καὶ ἡ δύναμις καὶ ἡ δόξα\nεἰς τοὺς αἰῶνας.\nἈμήν."
         ]
       }
     ]

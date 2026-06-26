@@ -282,6 +282,11 @@
   // catechism question labels in the picker dropdown.
   truncate = (s, n) => { s = (s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).replace(/\s+\S*$/, '') + '…' : s; };
   bookIndex = (name) => this.BOOKS.findIndex((b) => b.name === name) + 1;
+  // Normalize verse/creed text for layout: collapse runs of spaces/tabs to a single space
+  // but PRESERVE newlines as hard line breaks (poetry lines, paragraph breaks, Lord's Prayer
+  // clauses) so renderWord can emit <br>s. A ¶ pilcrow (KJV-style paragraph mark) becomes a
+  // paragraph break; spaces around each break are trimmed and 3+ blank lines collapse to one.
+  normText = (s) => (s || '').replace(/\r/g, '').replace(/¶/g, '\n\n').replace(/[^\S\n]+/g, ' ').replace(/ ?\n ?/g, '\n').replace(/\n{3,}/g, '\n\n').replace(/^\s+|\s+$/g, '');
   splitSegs = (text) => {
     text = (text || '').normalize('NFC');
     const out = []; const re = /[\p{L}\p{N}][\p{L}\p{N}\p{M}]*(?:['’\-][\p{L}\p{N}\p{M}]*)*/gu; let last = 0, m;
@@ -297,9 +302,9 @@
     reference = this.fixBookName(reference);
     let vi = 0; const words = [];
     const vs = verses.map((v, vIdx) => {
-      const segs = this.splitSegs((v.text || '').replace(/\s+/g, ' ').trim());
+      const segs = this.splitSegs(this.normText(v.text));
       segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vIdx }); vi++; } });
-      return { num: v.num, head: v.head || null, segs };
+      return { num: v.num, head: v.head || null, br: !!v.br, segs };
     });
     // Scripture passages append the reference as a final memory line ("Psalm 23:1 to 5")
     // so it's practiced along with the text in every mode — its words join the flat
@@ -317,10 +322,13 @@
     const parts = text.split(/\[(\d+)\]/); const verses = [];
     for (let i = 1; i < parts.length; i += 2) {
       const num = parseInt(parts[i], 10);
-      const t = (parts[i + 1] || '').replace(/\s+/g, ' ').trim();
-      if (t) verses.push({ num, text: t });
+      const t = this.normText(parts[i + 1]);
+      // The ESV text endpoint lineates poetry (and paragraphs) with newlines; a newline just
+      // before this verse's number marker means the verse begins a new poetic line/paragraph.
+      const br = /\n[^\S\n]*$/.test(parts[i - 1] || '');
+      if (t) verses.push({ num, text: t, br });
     }
-    if (!verses.length) { const t = text.replace(/\s+/g, ' ').trim(); if (t) verses.push({ num: 1, text: t }); }
+    if (!verses.length) { const t = this.normText(text); if (t) verses.push({ num: 1, text: t }); }
     return verses;
   };
 
