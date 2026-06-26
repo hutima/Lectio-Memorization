@@ -572,9 +572,12 @@
   };
   // The book list keeps the canonical plural "Psalms"; a single psalm reads "Psalm 23".
   fixBookName = (ref) => (ref || '').replace(/\bPsalms\b/g, 'Psalm');
-  // Spoken-style reference for the appended memory line: "Psalm 23:1-5" → "Psalm 23:1 to 5"
-  // (a whole chapter stays "Psalm 23" — buildRef omits the verse range there).
-  refToText = (ref) => this.fixBookName(ref).replace(/(\d)\s*[–—-]\s*(\d)/, '$1 to $2');
+  // Reference for the appended memory line: a verse range renders with a literal em-dash
+  // ("Psalm 23:1-5" → "Psalm 23:1—5") rather than the word "to". The dash is punctuation,
+  // not a word, so splitSegs leaves it out of the blanked/typed words — it's shown, never
+  // hidden — while the surrounding numbers stay practiceable. (A whole chapter stays
+  // "Psalm 23"; buildRef omits the verse range there.)
+  refToText = (ref) => this.fixBookName(ref).replace(/(\d)\s*[–—-]\s*(\d)/, '$1—$2');
   buildRef = () => {
     const meta = this.bookMeta(this.state.book); const single = meta.chapters === 1; const ch = this.state.chapter;
     const count = this.curVerseCount();

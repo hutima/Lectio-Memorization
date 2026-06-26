@@ -78,7 +78,9 @@
       onKeyDown: (e) => this.onBlankKey(vi, e),
       // Tapping a blank focuses it directly (and marks it current); keep it above the keyboard.
       onFocus: (e) => { this.setState({ fillActive: vi }); try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} },
-      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
+      // Numbers (the reference's chapter/verse) are never hinted — a single digit's first
+      // character is the whole answer, so a hint would just give it away.
+      placeholder: st.showHints && !/^\d/.test(text) ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
       style: { font: 'inherit', fontFamily: this.scriptFont(), width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px', touchAction: 'manipulation' },
     });
   };

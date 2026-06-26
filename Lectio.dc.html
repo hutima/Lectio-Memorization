@@ -1089,9 +1089,12 @@ class Component extends DCLogic {
   };
   // The book list keeps the canonical plural "Psalms"; a single psalm reads "Psalm 23".
   fixBookName = (ref) => (ref || '').replace(/\bPsalms\b/g, 'Psalm');
-  // Spoken-style reference for the appended memory line: "Psalm 23:1-5" → "Psalm 23:1 to 5"
-  // (a whole chapter stays "Psalm 23" — buildRef omits the verse range there).
-  refToText = (ref) => this.fixBookName(ref).replace(/(\d)\s*[–—-]\s*(\d)/, '$1 to $2');
+  // Reference for the appended memory line: a verse range renders with a literal em-dash
+  // ("Psalm 23:1-5" → "Psalm 23:1—5") rather than the word "to". The dash is punctuation,
+  // not a word, so splitSegs leaves it out of the blanked/typed words — it's shown, never
+  // hidden — while the surrounding numbers stay practiceable. (A whole chapter stays
+  // "Psalm 23"; buildRef omits the verse range there.)
+  refToText = (ref) => this.fixBookName(ref).replace(/(\d)\s*[–—-]\s*(\d)/, '$1—$2');
   buildRef = () => {
     const meta = this.bookMeta(this.state.book); const single = meta.chapters === 1; const ch = this.state.chapter;
     const count = this.curVerseCount();
@@ -1717,7 +1720,9 @@ class Component extends DCLogic {
       onKeyDown: (e) => this.onBlankKey(vi, e),
       // Tapping a blank focuses it directly (and marks it current); keep it above the keyboard.
       onFocus: (e) => { this.setState({ fillActive: vi }); try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} },
-      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
+      // Numbers (the reference's chapter/verse) are never hinted — a single digit's first
+      // character is the whole answer, so a hint would just give it away.
+      placeholder: st.showHints && !/^\d/.test(text) ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
       style: { font: 'inherit', fontFamily: this.scriptFont(), width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px', touchAction: 'manipulation' },
     });
   };
@@ -2103,7 +2108,9 @@ class Component extends DCLogic {
       onKeyDown: (e) => this.onTypeKey(vi, e),
       // Tapping a word focuses it directly (and marks it current); keep it above the keyboard.
       onFocus: (e) => { this.setState({ typeActive: vi }); try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (_) {} },
-      placeholder: st.showHints ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
+      // Numbers (the reference's chapter/verse) are never hinted — a single digit's first
+      // character is the whole answer, so a hint would just give it away.
+      placeholder: st.showHints && !/^\d/.test(text) ? text[0] : '', spellCheck: false, autoCapitalize: 'off', autoComplete: 'off', autoCorrect: 'off', inputMode: 'text',
       style: { font: 'inherit', fontFamily: this.scriptFont(), width: (text.length * 0.62 + 1.4) + 'em', textAlign: 'center', border: 'none', borderBottom: '2px solid ' + col, background: 'transparent', color: filled ? (ok ? 'var(--good)' : 'var(--bad)') : 'var(--text)', outline: 'none', padding: '0 2px', margin: '0 1px', touchAction: 'manipulation' },
     });
   };
