@@ -68,9 +68,10 @@
     }
     const out = [];
     p.verses.forEach((v, vi) => {
-      // A verse flagged `br` (its source lineated a new poetic line / paragraph before it)
-      // starts on its own line; otherwise verses flow inline separated by a space.
-      if (vi > 0) out.push(v.br ? h('br', { key: 'sp' + vi }) : h('span', { key: 'sp' + vi }, ' '));
+      // `pbr` opens a new paragraph (a small vertical gap — KJV pilcrows); `br` starts a new
+      // poetic line; otherwise verses flow inline separated by a space.
+      if (vi > 0) out.push(v.pbr ? h('span', { key: 'sp' + vi, style: { display: 'block', height: '0.6em' } })
+        : v.br ? h('br', { key: 'sp' + vi }) : h('span', { key: 'sp' + vi }, ' '));
       if (this.state.showVerseNums && v.num != null) out.push(h('sup', { key: 'vn' + vi, style: { fontSize: '0.6em', color: 'var(--muted)', fontWeight: 700, marginRight: '3px', fontFamily: "'Noto Sans',sans-serif" } }, v.num));
       v.segs.forEach((s, si) => out.push(this.renderWord(s, vi + '_' + si)));
     });

@@ -74,6 +74,11 @@
   // transform never has to re-parse ~160KB of text. Each doc is either a `creed`
   // (paras: string[]) or a `catechism` (items: {n, q, a}[]). See src/creeds.json.
   CREEDS = (typeof window !== 'undefined' && window.LECTIO_CREEDS) || [];
+  // KJV paragraph (pilcrow ¶) positions, injected by build.mjs as window.LECTIO_KJVPARA
+  // (built by scripts/build-kjv-paragraphs.mjs): { <bookId>: { <chapter>: [<verse>, …] } }.
+  // buildPassage marks the verses that begin a paragraph so KJV prose reads in paragraphs.
+  // (The printed 1769 pilcrows stop after Acts 20:36, so later books simply have none.)
+  KJV_PARA = (typeof window !== 'undefined' && window.LECTIO_KJVPARA) || {};
 
   componentDidMount() {
     const g = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } };
@@ -304,15 +309,29 @@
   // ESV carries its own lineation; prose books and creeds are left flowing.
   POETRY_REF = /^(?:Job|Psalms?|Proverbs|Ecclesiastes|Song of Solomon|Lamentations)\b/;
   isPoetryRef = (reference) => this.POETRY_REF.test(this.fixBookName(reference || ''));
-  lineateKjvPoetry = (verses) => verses.map((v, i) => ({ ...v, text: (v.text || '').replace(/([;:])[^\S\n]+/g, '$1\n'), br: i > 0 || !!v.br }));
+  // KJV layout: lineate poetry at the edition's parallelism colon/semicolon (each verse on
+  // its own line — br), and open a new paragraph at the 1769 pilcrow positions (KJV_PARA — pbr).
+  // ESV brings its own lineation; prose books and creeds are left flowing.
+  formatKjv = (reference, verses) => {
+    const poetry = this.isPoetryRef(reference);
+    const pr = this.parseRef(reference);
+    const starts = (pr && pr.ch != null && this.KJV_PARA[pr.bi + 1] && this.KJV_PARA[pr.bi + 1][pr.ch]) || null;
+    if (!poetry && !starts) return verses;
+    return verses.map((v, i) => ({
+      ...v,
+      text: poetry ? (v.text || '').replace(/([;:])[^\S\n]+/g, '$1\n') : v.text,
+      br: (poetry && i > 0) || !!v.br,
+      pbr: (!!starts && starts.indexOf(v.num) !== -1) || !!v.pbr,
+    }));
+  };
   buildPassage = (reference, version, verses, opts = {}) => {
     reference = this.fixBookName(reference);
-    if (version === 'KJV' && !opts.kind && this.isPoetryRef(reference)) verses = this.lineateKjvPoetry(verses);
+    if (version === 'KJV' && !opts.kind) verses = this.formatKjv(reference, verses);
     let vi = 0; const words = [];
     const vs = verses.map((v, vIdx) => {
       const segs = this.splitSegs(this.normText(v.text));
       segs.forEach((s) => { if (s.w) { s.vi = vi; words.push({ vi, text: s.text, v: vIdx }); vi++; } });
-      return { num: v.num, head: v.head || null, br: !!v.br, segs };
+      return { num: v.num, head: v.head || null, br: !!v.br, pbr: !!v.pbr, segs };
     });
     // Scripture passages append the reference as a final memory line ("Psalm 23:1 to 5")
     // so it's practiced along with the text in every mode — its words join the flat

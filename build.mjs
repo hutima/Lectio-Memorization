@@ -33,6 +33,11 @@ const props = src('props.json').trimEnd();
 // runtime runs on every load. Minify for size and escape "<" for safe <script> embedding.
 const creedsData = JSON.stringify(JSON.parse(src('creeds.json'))).replace(/</g, '\\u003c');
 
+// KJV paragraph (pilcrow ¶) position map (data/kjv-para.json, built by
+// scripts/build-kjv-paragraphs.mjs). Injected as window.LECTIO_KJVPARA so buildPassage can
+// mark paragraph starts synchronously. Tiny (~14KB); only the position map is embedded.
+const kjvPara = JSON.stringify(JSON.parse(readFileSync(join(root, 'data', 'kjv-para.json'), 'utf8')).para).replace(/</g, '\\u003c');
+
 // The component logic is split by concern under src/logic/ for editability, but the
 // dc-runtime needs a single `class Component extends DCLogic`. Each file is a
 // CLASS-BODY FRAGMENT (members only); we concatenate them inside one class here.
@@ -64,7 +69,7 @@ const html =
   '<helmet>\n' + helmet + '\n</helmet>\n\n' +
   template + '\n' +
   '</x-dc>\n' +
-  '<script>window.LECTIO_CREEDS=' + creedsData + ';</script>\n' +
+  '<script>window.LECTIO_CREEDS=' + creedsData + ';window.LECTIO_KJVPARA=' + kjvPara + ';</script>\n' +
   '<script type="text/x-dc" data-dc-script data-props="' + escapeAttr(props) + '">\n' +
   logic + '\n' +
   '</script>\n</body>\n</html>\n';
