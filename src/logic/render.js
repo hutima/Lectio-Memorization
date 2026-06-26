@@ -5,7 +5,7 @@
   // vals_* footer values with the shared chrome/picker/status values).
   // ============================================================================
 
-  sizeMap = { Compact: { fs: 'clamp(17px,2vw,22px)', lh: 1.85 }, Comfortable: { fs: 'clamp(19px,2.4vw,27px)', lh: 1.95 }, Large: { fs: 'clamp(22px,3vw,33px)', lh: 2.0 } };
+  sizeMap = { Tiny: { fs: 'clamp(13px,1.45vw,16px)', lh: 1.7 }, Small: { fs: 'clamp(15px,1.7vw,19px)', lh: 1.8 }, Compact: { fs: 'clamp(17px,2vw,22px)', lh: 1.85 }, Comfortable: { fs: 'clamp(19px,2.4vw,27px)', lh: 1.95 }, Large: { fs: 'clamp(22px,3vw,33px)', lh: 2.0 } };
 
   renderWord = (s, key) => {
     const h = React.createElement; if (!s.w) return h('span', { key }, s.text);
@@ -228,7 +228,7 @@
       // Scripture display: font family (serif/sans) + size. Both persist; size drives
       // font-size, so it scales the passage and its inline inputs without CSS zoom.
       fontOpts: [['serif', 'Serif'], ['sans', 'Sans']].map(([id, label]) => ({ label, onClick: () => this.setScriptureFont(id), style: this.seg(id === st.scriptureFont) })),
-      sizeOpts: ['Compact', 'Comfortable', 'Large'].map((s) => ({ label: s, onClick: () => this.setScriptureSize(s), style: this.seg(s === st.scriptureSize) })),
+      sizeOpts: ['Tiny', 'Small', 'Compact', 'Comfortable', 'Large'].map((s) => ({ label: s, onClick: () => this.setScriptureSize(s), style: this.seg(s === st.scriptureSize) })),
       scripturePreviewStyle: { fontFamily: this.scriptFont(), fontSize: (this.sizeMap[st.scriptureSize] || this.sizeMap.Comfortable).fs, lineHeight: 1.4, color: 'var(--text)', padding: '12px 14px', background: 'var(--surface2)', border: '1px solid var(--line)', borderRadius: '10px' },
       toggleReminder: this.toggleReminder, reminderBtn: this.toggleBtn(st.reminderOn), reminderLabel: st.reminderOn ? 'On' : 'Off',
       cacheStatus: st.cacheCount + (st.cacheCount === 1 ? ' ESV verse cached.' : ' ESV verses cached.'),

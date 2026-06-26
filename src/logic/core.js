@@ -347,6 +347,12 @@
     // Reset the per-test "already counted as practice" flag so the next Test attempt
     // bumps the streak/heatmap once, then refines its partial score silently.
     this._typeScored = false;
+    // bankOpts (the per-blank option cache) is reset in the setState below; its companion
+    // in-flight guard `_optLoading` lives on the instance, so it must be reset in lockstep.
+    // Otherwise a word index that was loaded for a previous passage stays flagged, and the
+    // matching blank in the new passage never repopulates options — the "Finding similar
+    // words…" spinner hangs forever (notably the first one or two blanks after a switch).
+    this._optLoading = {};
     this.setState({
       blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
@@ -364,6 +370,8 @@
     const pct = parseFloat(e.target.value); const p = this.state.passage; if (!p) { this.setState({ blankPct: pct }); return; }
     const seed = this.hash(p.reference + '|' + p.words.length);
     const blanks = this.pickBlanks(p.words, pct, seed); const bank = this.buildBank(p, blanks, seed);
+    // Keep the option-cache guard in sync with the bankOpts reset below (see initModes).
+    this._optLoading = {};
     this.setState({
       blankPct: pct, blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},

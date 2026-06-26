@@ -21,8 +21,10 @@
   ensureOptions = () => { const vi = this.state.bankActive; if (vi == null) return; this.loadOptions(vi); const nx = this.nextBlank(vi); if (nx != null) this.loadOptions(nx); };
   loadOptions = async (vi) => {
     if (vi == null || this.state.bankOpts[vi]) return;
-    const lo = this._optLoading || (this._optLoading = {}); if (lo[vi]) return; lo[vi] = true;
     const p = this.state.passage; if (!p) return;
+    // Mark in-flight only once we're committed to loading (passage present) so a null
+    // passage can't strand the guard and leave the blank stuck on the spinner.
+    const lo = this._optLoading || (this._optLoading = {}); if (lo[vi]) return; lo[vi] = true;
     const correct = p.words[vi].text; const seed = this.hash(p.reference + '|opt|' + vi);
     // Greek text: the Datamuse lookups and the English POS pool are meaningless here, so
     // draw decoys from real Greek lexemes (same-case where possible) instead — and skip
@@ -37,6 +39,10 @@
       this.fetchJson('https://api.datamuse.com/words?ml=' + q + '&md=pf&max=30', 2000),
       this.fetchJson('https://api.datamuse.com/words?sp=' + q + '&md=p&max=1', 2000),
     ]);
+    // The passage may have changed while this fetch was in flight (a switch resets the
+    // option cache + its in-flight guard); dropping the stale result keeps us from writing
+    // the previous word's distractors onto the new passage's blank.
+    if (this.state.passage !== p) return;
     const targetPos = posData && posData[0] ? this.posOf(posData[0].tags) : null;
     const opts = this.buildOptions(correct, (sim && sim.length ? sim : null), targetPos, seed);
     this.setState({ bankOpts: { ...this.state.bankOpts, [vi]: opts } });
