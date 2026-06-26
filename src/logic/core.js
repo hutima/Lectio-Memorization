@@ -375,7 +375,12 @@
     return { items, order };
   };
   initModes = (passage) => {
-    const seed = this.hash(passage.reference + '|' + passage.words.length);
+    // Fresh random seed per load/restart so the hidden words vary each time a passage is
+    // opened, rather than always blanking the same set. The ease slider reuses this same
+    // seed (onBlankPct), so dragging it grows/shrinks a stable, nested selection instead of
+    // reshuffling on every tick.
+    this._blankSeed = (Math.random() * 0x100000000) >>> 0;
+    const seed = this._blankSeed;
     const blanks = this.pickBlanks(passage.words, this.state.blankPct, seed);
     const bank = this.buildBank(passage, blanks, seed);
     this._revealPrev = null;
@@ -403,7 +408,9 @@
   // Shared "ease" slider: how many words become blanks (fill + word-bank modes).
   onBlankPct = (e) => {
     const pct = parseFloat(e.target.value); const p = this.state.passage; if (!p) { this.setState({ blankPct: pct }); return; }
-    const seed = this.hash(p.reference + '|' + p.words.length);
+    // Reuse this load's random seed so dragging only changes how many words are hidden, not
+    // which ones (a stable nested set); fall back to a derived seed if none was set yet.
+    const seed = this._blankSeed != null ? this._blankSeed : this.hash(p.reference + '|' + p.words.length);
     const blanks = this.pickBlanks(p.words, pct, seed); const bank = this.buildBank(p, blanks, seed);
     // Keep the option-cache guard in sync with the bankOpts reset below (see initModes).
     this._optLoading = {};
