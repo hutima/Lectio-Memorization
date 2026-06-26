@@ -232,7 +232,7 @@
     </sc-if>
 
     <div style="position:relative;background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:clamp(18px,3.4vw,32px);min-height:200px;overflow:hidden;">
-      <div style="{{ practiceDimStyle }}">{{ practice }}</div>
+      <div onPointerDown="{{ holdStart }}" onPointerUp="{{ holdEnd }}" onPointerLeave="{{ holdEnd }}" onPointerCancel="{{ holdEnd }}" style="{{ practiceDimStyle }}">{{ practice }}</div>
       <sc-if value="{{ selDirty }}" hint-placeholder-val="{{ false }}">
         <div style="position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:clamp(24px,9vh,90px) 18px 18px;">
           <div style="display:flex;flex-direction:column;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px 24px;box-shadow:0 14px 36px rgba(0,0,0,.22);max-width:340px;text-align:center;">

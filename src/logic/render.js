@@ -216,7 +216,9 @@
       // carrying the old passage over under a changed reference).
       selDirty, pendingRef: isCreeds ? this.creedRefPreview() : this.buildRef(),
       loadNew: this.doLoad, loadNewBtn: primaryBtn, loadNewLabel: st.loading ? 'Loading…' : 'Load new passage',
-      practiceDimStyle: selDirty ? { opacity: 0.32, filter: 'blur(2.5px)', pointerEvents: 'none', userSelect: 'none', transition: 'opacity .15s,filter .15s' } : { transition: 'opacity .15s,filter .15s' },
+      // Hide mode also suppresses text selection + the iOS long-press callout, so a
+      // press-and-hold flips the passage (holdStart) instead of selecting words.
+      practiceDimStyle: selDirty ? { opacity: 0.32, filter: 'blur(2.5px)', pointerEvents: 'none', userSelect: 'none', transition: 'opacity .15s,filter .15s' } : (st.mode === 'hide' ? { transition: 'opacity .15s,filter .15s', userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none' } : { transition: 'opacity .15s,filter .15s' }),
 
       // verse-by-verse focus bar (only for multi-verse Scripture). vbvShow gates the bar;
       // vbvOn/vbvOff pick between the in-focus nav (Prev/Next/Whole chapter) and the
