@@ -172,6 +172,57 @@
   card = (kids, key) => React.createElement('div', { key, style: { background: 'var(--surface)', border: '1px solid var(--line)', borderRadius: '16px', padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '12px' } }, kids);
   sectionTitle = (t, key) => React.createElement('div', { key, style: { fontSize: '13px', fontWeight: 700, letterSpacing: '.3px', color: 'var(--muted)' } }, t);
   swatch = (color, label) => React.createElement('span', { style: { display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '12px', color: 'var(--muted)' } }, React.createElement('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: color, border: '1px solid var(--line)' } }), label);
+
+  // ---------- creed / catechism progress ----------
+  setStatsScope = (e) => this.setState({ statsScope: e.target.value });
+  // Per-doc progress, read back from the same progress map the Bible canon uses. Progress
+  // keys are "version · reference"; for a creed/catechism the version IS the doc id (see
+  // loadCreed). For catechisms we resolve each entry's reference to the question number(s)
+  // it covers — "WSC Q1" -> [1], "Heidelberg · Lord's Day 5" -> that day's question range —
+  // and grade them 0 unseen / 1 studied / 2 memorized. Creeds collapse to a single status.
+  docProgress = (d) => {
+    const isCat = d.kind === 'catechism';
+    const total = isCat ? d.items.length : 1;
+    const status = new Array(total).fill(0);
+    const setQ = (n, val) => { const i = d.items.findIndex((it) => it.n === n); if (i >= 0 && status[i] < val) status[i] = val; };
+    const prog = this.state.progress || {};
+    Object.keys(prog).forEach((key) => {
+      const sep = key.indexOf(' · '); if (sep < 0 || key.slice(0, sep) !== d.id) return;
+      const ref = key.slice(sep + 3); const p = prog[key];
+      const val = (p.learned || (p.best || 0) >= this.MASTERY || (p.known || 0) >= this.MASTERY) ? 2 : (p.attempts || 0) > 0 ? 1 : 0;
+      if (!val) return;
+      if (!isCat) { if (status[0] < val) status[0] = val; return; }
+      const ld = ref.match(/Lord.?s Day\s*(\d+)/i);
+      if (ld && Array.isArray(d.lordsDays)) { const rng = d.lordsDays[parseInt(ld[1], 10) - 1]; if (rng) for (let q = rng[0]; q <= rng[1]; q++) setQ(q, val); return; }
+      const qm = ref.match(/Q\s*(\d+)/i); if (qm) setQ(parseInt(qm[1], 10), val);
+    });
+    let seen = 0, done = 0; status.forEach((v) => { if (v >= 1) seen++; if (v === 2) done++; });
+    return { status, total, seen, done, isCat };
+  };
+  // The map card for a creed/catechism: catechisms get one small square per question
+  // (grey -> blue as you study -> memorize); creeds collapse to a single status chip.
+  renderDocStats = (d) => {
+    const h = React.createElement; const s = this.canonStops(); const dp = this.docProgress(d);
+    const title = this.sectionTitle(d.title.toUpperCase(), 'ct');
+    if (!dp.isCat) {
+      const label = dp.done ? 'Memorized' : dp.seen ? 'Practiced' : 'Not started yet';
+      return this.card([
+        title,
+        h('div', { key: 'row', style: { display: 'flex', alignItems: 'center', gap: '10px' } },
+          h('span', { style: { width: '16px', height: '16px', borderRadius: '4px', background: this.canonColor(dp.status[0]), border: '1px solid var(--line)' } }),
+          h('span', { style: { fontSize: '14px', color: 'var(--text)' } }, label)),
+        h('div', { key: 'hint', style: { fontSize: '12px', color: 'var(--muted)' } }, 'Practise this in a graded mode (Fill, Word bank, or Test) to track it here.'),
+      ], 'doccard');
+    }
+    const cells = dp.status.map((v, i) => h('div', { key: i, title: 'Q' + d.items[i].n + (v === 2 ? ' · memorized' : v === 1 ? ' · studied' : ''), style: { width: '15px', height: '15px', borderRadius: '4px', background: this.canonColor(v), border: '1px solid var(--line)' } }));
+    return this.card([
+      title,
+      h('div', { key: 'sum', style: { fontSize: '13px', color: 'var(--text)' } }, h('strong', null, dp.seen), ' of ', dp.total, ' questions studied', h('span', { style: { color: 'var(--muted)' } }, '  ·  ' + dp.done + ' memorized')),
+      h('div', { key: 'grid', style: { display: 'flex', flexWrap: 'wrap', gap: '4px' } }, cells),
+      h('div', { key: 'lg', style: { display: 'flex', gap: '14px', flexWrap: 'wrap', marginTop: '2px' } }, this.swatch(this.mix(s.a, s.a, 0), 'Unseen'), this.swatch(this.mix(s.a, s.b, 1), 'Studied'), this.swatch(this.mix(s.b, s.c, 1), 'Memorized')),
+    ], 'catcard');
+  };
+
   renderStats = () => {
     const h = React.createElement; const st = this.state; const data = this.verseStatus(); const s = this.canonStops();
     const fmt = (n) => n.toLocaleString();
@@ -223,7 +274,17 @@
       h('div', { key: 'lg', style: { display: 'flex', gap: '14px', flexWrap: 'wrap', marginTop: '2px' } }, this.swatch(this.mix(s.a, s.a, 0), 'Unseen'), this.swatch(this.mix(s.a, s.b, 1), 'Seen'), this.swatch(this.mix(s.b, s.c, 1), 'Memorized')),
     ], 'canon');
 
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } }, [header, tiles, heat, canon]);
+    // Scope selector: map the whole Bible (the canon view above) or a single creed /
+    // catechism (its own per-question breakdown). Defaults to the Bible.
+    const scope = st.statsScope || 'bible';
+    const scopeSel = h('div', { key: 'scope', style: { display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' } }, [
+      h('span', { key: 'l', style: { fontSize: '13px', fontWeight: 700, letterSpacing: '.3px', color: 'var(--muted)' } }, 'SHOWING'),
+      h('select', { key: 's', value: scope, onChange: this.setStatsScope, style: { padding: '9px 11px', border: '1px solid var(--line)', borderRadius: '10px', background: 'var(--surface)', color: 'var(--text)', fontSize: '14px', outline: 'none', flex: 1, minWidth: '180px' } },
+        [h('option', { key: 'bible', value: 'bible' }, 'The whole Bible')].concat(this.CREEDS.map((d) => h('option', { key: d.id, value: d.id }, d.title)))),
+    ]);
+    const mapCard = scope === 'bible' ? canon : this.renderDocStats(this.creedDoc(scope));
+
+    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } }, [header, tiles, heat, scopeSel, mapCard]);
   };
 
   // ---------- suggested passages ----------

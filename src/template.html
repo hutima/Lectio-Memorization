@@ -205,6 +205,22 @@
       </div>
     </sc-if>
 
+    <sc-if value="{{ vbvShow }}" hint-placeholder-val="{{ false }}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:8px 12px;">
+        <sc-if value="{{ vbvOn }}" hint-placeholder-val="{{ false }}">
+          <button onClick="{{ vbvPrev }}" style="{{ vbvPrevBtn }}">‹ Prev</button>
+          <button onClick="{{ vbvNext }}" style="{{ vbvNextBtn }}">Next ›</button>
+          <span style="font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap;">{{ vbvLabel }}</span>
+          <span style="flex:1;"></span>
+          <button onClick="{{ exitVbv }}" style="{{ ghostBtn }}">Whole chapter</button>
+        </sc-if>
+        <sc-if value="{{ vbvOff }}" hint-placeholder-val="{{ true }}">
+          <span style="font-size:13px;color:var(--muted);flex:1;min-width:120px;">Study this chapter one verse at a time.</span>
+          <button onClick="{{ enterVbv }}" style="{{ primaryBtn }}">Verse by verse</button>
+        </sc-if>
+      </div>
+    </sc-if>
+
     <sc-if value="{{ showEase }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 14px;">
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">Fewer blanks</span>
@@ -273,8 +289,9 @@
             <button onClick="{{ toggleHideAll }}" style="{{ hideBtnStyle }}">{{ hideToggleLabel }}</button>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <sc-if value="{{ hasRevealed }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearRevealed }}" style="{{ ghostBtn }}">Clear peeks</button></sc-if>
+              <sc-if value="{{ hasHidden }}" hint-placeholder-val="{{ false }}"><button onClick="{{ clearHidden }}" style="{{ ghostBtn }}">Show all words</button></sc-if>
               <span style="flex:1;"></span>
-              <span style="font-size:13px;color:var(--muted);">Tap a word to peek or hide it.</span>
+              <span style="font-size:13px;color:var(--muted);">{{ hideHintText }}</span>
             </div>
           </div>
         </sc-if>

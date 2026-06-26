@@ -178,8 +178,9 @@
       modeTabs: [['hide', 'Hide & reveal'], ['bank', 'Word bank'], ['hidden', 'Fill blanks']].map(([id, label]) => ({ label, onClick: () => this.setMode(id), style: this.modeSeg(id === st.mode) })),
       selectTest: () => this.setMode('type'), testTabStyle: this.testTab(st.mode === 'type'),
 
-      // passage
-      hasPassage: !!p, reference: p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef()), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
+      // passage. While focused on a single verse, the picker header still shows the whole
+      // chapter (the active selection) — the focused verse is named in the verse-by-verse bar.
+      hasPassage: !!p, reference: (st.vbv && st.fullPassage) ? st.fullPassage.reference : (p ? p.reference : (isCreeds ? this.creedRefPreview() : this.buildRef())), versionLabel: p ? (p.kind ? '' : p.version) : (isCreeds ? '' : st.version),
       modeHint: modeHints[st.mode] || '',
       practice: this.renderPractice(),
       // When the selector points at a different passage than the one on screen, grey the
@@ -188,6 +189,16 @@
       selDirty, pendingRef: isCreeds ? this.creedRefPreview() : this.buildRef(),
       loadNew: this.doLoad, loadNewBtn: primaryBtn, loadNewLabel: st.loading ? 'Loading…' : 'Load new passage',
       practiceDimStyle: selDirty ? { opacity: 0.32, filter: 'blur(2.5px)', pointerEvents: 'none', userSelect: 'none', transition: 'opacity .15s,filter .15s' } : { transition: 'opacity .15s,filter .15s' },
+
+      // verse-by-verse focus bar (only for multi-verse Scripture). vbvShow gates the bar;
+      // vbvOn/vbvOff pick between the in-focus nav (Prev/Next/Whole chapter) and the
+      // "start verse by verse" prompt. Prev/Next disable at the chapter's ends.
+      vbvShow: st.vbv || this.vbvAvailable(), vbvOn: st.vbv, vbvOff: !st.vbv && this.vbvAvailable(),
+      enterVbv: this.enterVbv, exitVbv: this.exitVbv,
+      vbvPrev: () => this.vbvGo(-1), vbvNext: () => this.vbvGo(1),
+      vbvLabel: (st.vbv && st.fullPassage) ? ('Verse ' + ((st.vbvIdx || 0) + 1) + ' of ' + st.fullPassage.verses.length) : '',
+      vbvPrevBtn: navBtn((st.vbvIdx || 0) <= 0),
+      vbvNextBtn: navBtn(!st.fullPassage || (st.vbvIdx || 0) >= st.fullPassage.verses.length - 1),
 
       // ease slider (top of passage)
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
