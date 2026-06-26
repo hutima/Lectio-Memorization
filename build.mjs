@@ -49,6 +49,7 @@ const LOGIC_PARTS = [
   'logic/mode-bank.js',
   'logic/mode-type.js',
   'logic/stats.js',
+  'logic/gamify.js',
   'logic/render.js',
 ];
 const logic =

@@ -163,6 +163,12 @@
       currentModeName: ({ hide: 'Hide & reveal', hidden: 'Fill blanks', bank: 'Word bank', type: 'Test' })[st.mode],
       homeSummary: this.homeSummary(),
 
+      // gamification: the always-on home reward banner (level/XP/streak) and the
+      // transient celebration banner (shown in home + practice after a milestone).
+      homeBanner: st.view === 'home' ? this.renderHomeBanner() : null,
+      celebrateBanner: st.celebrate ? this.renderCelebrate() : null,
+      hasCelebrate: !!st.celebrate, dismissCelebrate: this.dismissCelebrate,
+
       // picker
       pickerOpen: st.pickerOpen, togglePicker: this.togglePicker,
       pickerChevron: st.pickerOpen ? '▾' : '▸',

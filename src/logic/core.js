@@ -32,6 +32,9 @@
     typeVals: {}, typeReveal: {}, typeActive: null,
     progress: {}, streak: { count: 0, last: null, best: 0 }, seen: [], history: {},
     cacheCount: 0, usageToday: 0,
+    // Transient gamification banner (level-up / streak milestone / new badge /
+    // first practice of the day). Set by markPracticed → maybeCelebrate (gamify.js).
+    celebrate: null,
     updateReady: false, updateMsg: '', dataMsg: '',
     kbInset: 0,
     canonOpen: {},
@@ -900,14 +903,24 @@
   };
   markPracticed = () => {
     const today = new Date().toISOString().slice(0, 10);
+    // Snapshot the reward state BEFORE this practice so maybeCelebrate can tell what
+    // milestone (if any) the practice just crossed. `firstToday` is true when today
+    // had no prior practice; `advanced` when this practice extends the streak count.
+    const firstToday = !((this.state.history || {})[today] > 0);
+    const before = this.gamify(); before._badges = this.gamifyBadgeIds(before);
     this.bumpActivity(today);
     const s = { ...this.state.streak };
-    if (s.last !== today) {
+    const advanced = s.last !== today;
+    if (advanced) {
       const y = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
       s.count = (s.last === y ? s.count : 0) + 1; s.last = today;
     }
     s.best = Math.max(s.best || 0, s.count || 0);
-    this.setState({ streak: s }); try { localStorage.setItem('lectio.streak', JSON.stringify(s)); } catch (e) {}
+    // Celebrate after the streak state settles so gamify() reflects the new totals
+    // (bumpActivity's history setState is batched with this one, so the callback
+    // runs once both are applied).
+    this.setState({ streak: s }, () => this.maybeCelebrate(before, firstToday, advanced));
+    try { localStorage.setItem('lectio.streak', JSON.stringify(s)); } catch (e) {}
   };
   // Per-day practice tally for the heatmap (any practice in any mode bumps today).
   bumpActivity = (today) => {

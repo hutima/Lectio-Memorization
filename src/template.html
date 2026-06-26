@@ -57,6 +57,11 @@
       </div>
     </sc-if>
 
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <sc-if value="{{ hasCelebrate }}" hint-placeholder-val="{{ false }}">{{ celebrateBanner }}</sc-if>
+      {{ homeBanner }}
+    </sc-if>
+
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
       <div style="display:flex;flex-direction:column;gap:8px;padding-top:4px;">
         <div style="display:flex;gap:3px;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;">
@@ -199,6 +204,7 @@
 
     <sc-if value="{{ isPractice }}" hint-placeholder-val="{{ false }}">
     <div style="display:flex;flex-direction:column;gap:16px;{{ practicePad }};">
+    <sc-if value="{{ hasCelebrate }}" hint-placeholder-val="{{ false }}">{{ celebrateBanner }}</sc-if>
     <sc-if value="{{ hasPassage }}" hint-placeholder-val="{{ true }}">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
         <span style="font-size:13px;color:var(--muted);">{{ modeHint }}</span>

@@ -320,7 +320,13 @@
     ]);
     const mapCard = scope === 'bible' ? canon : this.renderDocStats(this.creedDoc(scope));
 
-    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } }, [header, tiles, heat, scopeSel, mapCard]);
+    // Gamification cards: the level/XP summary and the badge wall. `data` (the full
+    // canon scan) feeds the memorized-verse count into the stat object and badges.
+    const g = this.gamify(data);
+    const levelCard = this.renderLevelCard(g);
+    const badges = this.renderBadges(g);
+
+    return h('div', { style: { display: 'flex', flexDirection: 'column', gap: '16px' } }, [header, levelCard, tiles, badges, heat, scopeSel, mapCard]);
   };
 
   // ---------- suggested passages ----------
