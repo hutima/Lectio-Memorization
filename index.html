@@ -2373,11 +2373,11 @@ class Component extends DCLogic {
   };
 
   // ---------- practice heatmap (GitHub-style) ----------
-  // Last ~26 weeks of daily practice, columns = weeks (Sunday-aligned), rows =
+  // Last ~13 weeks (3 months) of daily practice, columns = weeks (Sunday-aligned), rows =
   // weekday. Cells are keyed and coloured by lectio.history[date] (UTC, matching
   // how the streak stamps "today"). Today gets an accent ring.
   renderHeatmap = () => {
-    const h = React.createElement; const hist = this.state.history || {}; const MS = 86400000; const weeks = 26;
+    const h = React.createElement; const hist = this.state.history || {}; const MS = 86400000; const weeks = 13;
     const todayStr = new Date().toISOString().slice(0, 10); const tMid = Date.parse(todayStr + 'T00:00:00Z');
     let sMid = tMid - (weeks * 7 - 1) * MS; sMid -= new Date(sMid).getUTCDay() * MS;
     const days = Math.round((tMid - sMid) / MS) + 1; const cols = []; let col = [];
@@ -2463,7 +2463,7 @@ class Component extends DCLogic {
     ]);
 
     const heat = this.card([
-      h('div', { key: 't', style: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' } }, this.sectionTitle('PRACTICE · LAST 6 MONTHS'), h('span', { style: { fontSize: '12px', color: 'var(--muted)' } }, 'Every day you practise lights up.')),
+      h('div', { key: 't', style: { display: 'flex', alignItems: 'baseline', gap: '10px', flexWrap: 'wrap' } }, this.sectionTitle('PRACTICE · LAST 3 MONTHS'), h('span', { style: { fontSize: '12px', color: 'var(--muted)' } }, 'Every day you practise lights up.')),
       this.renderHeatmap(),
       h('div', { key: 'lg', style: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--muted)' } }, 'Less', h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(0), border: '1px solid var(--line)' } }), h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(1) } }), h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(3) } }), h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(5) } }), h('span', { style: { width: '12px', height: '12px', borderRadius: '3px', background: this.heatColor(9) } }), 'More'),
     ], 'heat');
