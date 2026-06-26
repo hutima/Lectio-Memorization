@@ -804,8 +804,16 @@ class Component extends DCLogic {
   // non-practiced heading above the verse; only `text` words become practice words.
   // opts carries non-Scripture metadata (kind/attribution/title) used for layout +
   // the copyright line; it is absent (→ nulls) for ordinary Bible passages.
+  // KJV poetry is set as parallel cola separated by the edition's own colon (with a secondary
+  // semicolon): "The LORD is my shepherd; I shall not want." We break the poetry books on
+  // those marks so each parallel line stands alone, and start every verse on its own line.
+  // ESV carries its own lineation; prose books and creeds are left flowing.
+  POETRY_REF = /^(?:Job|Psalms?|Proverbs|Ecclesiastes|Song of Solomon|Lamentations)\b/;
+  isPoetryRef = (reference) => this.POETRY_REF.test(this.fixBookName(reference || ''));
+  lineateKjvPoetry = (verses) => verses.map((v, i) => ({ ...v, text: (v.text || '').replace(/([;:])[^\S\n]+/g, '$1\n'), br: i > 0 || !!v.br }));
   buildPassage = (reference, version, verses, opts = {}) => {
     reference = this.fixBookName(reference);
+    if (version === 'KJV' && !opts.kind && this.isPoetryRef(reference)) verses = this.lineateKjvPoetry(verses);
     let vi = 0; const words = [];
     const vs = verses.map((v, vIdx) => {
       const segs = this.splitSegs(this.normText(v.text));
