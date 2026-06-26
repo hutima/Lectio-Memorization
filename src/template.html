@@ -82,7 +82,7 @@
           </div>
 
           <sc-if value="{{ isBible }}" hint-placeholder-val="{{ true }}">
-            <div style="display:inline-flex;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;align-self:flex-start;">
+            <div style="display:inline-flex;flex-wrap:wrap;background:var(--surface2);border:1px solid var(--line);border-radius:11px;padding:3px;align-self:flex-start;">
               <sc-for list="{{ versions }}" as="v" hint-placeholder-count="2"><button onClick="{{ v.onClick }}" style="{{ v.style }}">{{ v.label }}</button></sc-for>
             </div>
             <div style="display:flex;gap:10px;flex-wrap:wrap;">
@@ -269,6 +269,9 @@
     </sc-if>
     <sc-if value="{{ isLxx }}" hint-placeholder-val="{{ false }}">
       <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">Septuagint (LXX) · Swete's text. Online from <a href="https://bolls.life" target="_blank" rel="noopener" style="color:var(--accent);">bolls.life</a>; bundled offline copy from the Open Greek &amp; Latin <a href="https://github.com/OpenGreekAndLatin/First1KGreek" target="_blank" rel="noopener" style="color:var(--accent);">First1KGreek</a> project — <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener" style="color:var(--accent);">CC BY-SA 4.0</a>, lightly cleaned.</div>
+    </sc-if>
+    <sc-if value="{{ isCoverdale }}" hint-placeholder-val="{{ false }}">
+      <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">Coverdale Psalter, from the Book of Common Prayer (1662) — Miles Coverdale's translation — public domain. Bundled offline; verse boundaries aligned to the King James numbering (wording unchanged). Psalms only.</div>
     </sc-if>
     <sc-if value="{{ isCreedDoc }}" hint-placeholder-val="{{ false }}">
       <div style="font-size:11px;color:var(--muted);line-height:1.5;padding-top:4px;">{{ creedNote }}</div>

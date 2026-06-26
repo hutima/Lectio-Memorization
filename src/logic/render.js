@@ -188,7 +188,7 @@
       ldOptions: hasLD ? curCreed.lordsDays.map((rng, i) => ({ value: String(i + 1), label: "Lord's Day " + (i + 1) + ' · Q' + rng[0] + (rng[1] > rng[0] ? '–' + rng[1] : '') })) : [],
       ldStart: st.ldStart, onLdStart: this.onLdStart,
       creedHint: isCatechism ? (ldMode ? "Pick a Lord's Day to study its questions together." : 'Pick a question to study.') : 'The full text, stored in the app.',
-      versions: ['ESV', 'KJV', 'Greek'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
+      versions: ['ESV', 'KJV', 'Greek', 'Coverdale'].map((v) => ({ label: v, onClick: () => this.setVersion(v), style: this.seg(v === st.version) })),
       books: this.BOOKS, book: st.book, onBook: this.onBook, selectStyle,
       chapterSelectStyle: { ...selectStyle, flex: 'none', minWidth: '92px' },
       showChapter: !single,
@@ -257,7 +257,7 @@
       toggleLearned: this.toggleLearned, learnedBtn: this.toggleBtn(prg.learned), learnedLabel: prg.learned ? '✓ Learned' : 'Mark as learned',
 
       // attribution
-      isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', isLxx: !!p && p.version === 'LXX', openCopyright: this.openCopyright,
+      isEsv: !!p && p.version === 'ESV', isKjv: !!p && p.version === 'KJV', isTr: !!p && p.version === 'GNT', isLxx: !!p && p.version === 'LXX', isCoverdale: !!p && p.version === 'Coverdale', openCopyright: this.openCopyright,
       isCreedDoc: !!p && !!p.kind, creedNote: (p && p.attribution) ? p.attribution : '',
 
       // settings

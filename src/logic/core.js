@@ -502,7 +502,7 @@
   // network. ESV is never bundled (its terms cap caching, so it stays online + the 500-verse
   // localStorage cache). label is the cache/version label (KJV/GNT/LXX); the OT↔NT split for
   // Greek is already resolved into LXX vs GNT by the caller.
-  BUNDLE_DIR = { KJV: 'kjv', GNT: 'gnt', LXX: 'lxx' };
+  BUNDLE_DIR = { KJV: 'kjv', GNT: 'gnt', LXX: 'lxx', Coverdale: 'coverdale' };
   bundledPassage = async (label) => {
     const dir = this.BUNDLE_DIR[label]; if (!dir) return null;
     const id = this.bookIndex(this.state.book); if (id < 1) return null;
@@ -605,7 +605,12 @@
   // so the practice area can grey out and prompt to load the new selection.
   selDirty = () => !this._booting && this.state.corpus !== 'suggested' && !!this.state.passage && this.state.loadedSig != null && this.selSig() !== this.state.loadedSig;
   togglePicker = () => { const open = !this.state.pickerOpen; this.setState({ pickerOpen: open }); if (open) this.ensureVerseCount(); };
-  onBook = (e) => { this.setState({ book: e.target.value, chapter: '1', vStart: '1', vEnd: '' }, () => this.ensureVerseCount()); };
+  onBook = (e) => {
+    const book = e.target.value; const upd = { book, chapter: '1', vStart: '1', vEnd: '' };
+    // Coverdale only carries the Psalms; choosing another book falls back to King James.
+    if (this.state.version === 'Coverdale' && this.bookIndex(book) !== 19) { upd.version = 'KJV'; try { localStorage.setItem('lectio.version', 'KJV'); } catch (e2) {} }
+    this.setState(upd, () => this.ensureVerseCount());
+  };
   onChapter = (e) => this.setState({ chapter: e.target.value, vStart: '1', vEnd: '' }, () => this.ensureVerseCount());
   onVStart = (e) => this.setState({ vStart: e.target.value });
   onVEnd = (e) => this.setState({ vEnd: e.target.value });
@@ -649,7 +654,10 @@
     // ESV needs a user-supplied API token. Prompt for it the moment ESV is chosen if
     // one isn't saved yet, rather than waiting for a failed load.
     if (v === 'ESV' && !this.state.esvToken.trim()) upd.esvModalOpen = true;
-    this.setState(upd, () => { try { localStorage.setItem('lectio.version', v); } catch (e) {} this.ensureVerseCount(); });
+    // The Coverdale Psalter is Psalms-only: snap the selection to Psalms so the picker can't
+    // sit on a book this version doesn't carry.
+    if (v === 'Coverdale' && this.bookIndex(this.state.book) !== 19) { upd.book = 'Psalms'; upd.chapter = '1'; upd.vStart = '1'; upd.vEnd = ''; }
+    this.setState(upd, () => { try { localStorage.setItem('lectio.version', v); } catch (e) {} this.persistSel(); this.ensureVerseCount(); });
   };
   openEsvModal = () => this.setState({ esvModalOpen: true });
   closeEsvModal = () => this.setState({ esvModalOpen: false });
@@ -719,7 +727,14 @@
     this.setState({ loading: true, error: null, offerKjv: false, vbv: false, fullPassage: null });
     try {
       let verses, reference, label = version;
-      if (version === 'ESV') {
+      if (version === 'Coverdale') {
+        // The Coverdale Psalter ships fully offline (bundled, KJV-numbered) and covers
+        // only the Psalms — no network call, no online fallback.
+        if (this.bookIndex(this.state.book) !== 19) { this.setState({ loading: false, error: 'The Coverdale Psalter covers only the Psalms.' }); return; }
+        try { localStorage.setItem('lectio.ref', ref); } catch (e) {}
+        if (await this.useBundled('Coverdale', ref)) return;
+        this.setState({ loading: false, error: 'Could not load that psalm from the Coverdale Psalter.' }); return;
+      } else if (version === 'ESV') {
         const token = this.state.esvToken.trim();
         if (!token) { this.setState({ loading: false, esvModalOpen: true, error: 'Add your ESV API token to use the ESV — or switch to King James.', offerKjv: true }); return; }
         const gate = this.canRequestEsv();
