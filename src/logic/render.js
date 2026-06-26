@@ -228,8 +228,10 @@
       vbvPrevBtn: navBtn((st.vbvIdx || 0) <= 0),
       vbvNextBtn: navBtn(!st.fullPassage || (st.vbvIdx || 0) >= st.fullPassage.verses.length - 1),
 
-      // ease slider (top of passage)
+      // ease slider (top of passage). A "Shuffle" button re-rolls which words are blanked
+      // at the current count; disabled at max (every word blank → nothing to vary).
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
+      reshuffleBlanks: this.reshuffleBlanks, shuffleBtn: navBtn(this.allBlank()),
 
       // control bars (top for typing modes, bottom for hide + word bank)
       showFooter, showTopBar, showBottomBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,

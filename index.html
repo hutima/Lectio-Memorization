@@ -266,6 +266,7 @@ input[type=range]{accent-color:var(--accent);}
         <input type="range" min="0.1" max="1" step="0.05" value="{{ blankPct }}" onChange="{{ onBlankPct }}" style="flex:1;min-width:120px;" />
         <span style="font-size:12px;color:var(--muted);white-space:nowrap;">All words</span>
         <span style="font-size:12px;color:var(--muted);font-weight:600;min-width:88px;text-align:right;">{{ easeLabel }}</span>
+        <button onClick="{{ reshuffleBlanks }}" style="{{ shuffleBtn }}" title="Blank a different set of words">↻ Shuffle</button>
       </div>
     </sc-if>
 
@@ -932,6 +933,24 @@ class Component extends DCLogic {
     this._optLoading = {};
     this.setState({
       blankPct: pct, blankList: blanks, bank,
+      hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
+      bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
+      bankActive: blanks.length ? blanks[0] : null,
+    }, () => { if (this.state.mode === 'bank' && !this.allBlank()) this.ensureOptions(); });
+  };
+  // Re-roll WHICH words are blanked, keeping the current count (blankPct). The ease slider
+  // grows/shrinks a stable nested set off one seed; this draws a fresh seed so the same
+  // percentage lands on a different set of words — a new variation of the same difficulty.
+  // (At "every word blank" there's nothing to vary, so it's a no-op.)
+  reshuffleBlanks = () => {
+    const p = this.state.passage; if (!p || this.allBlank()) return;
+    this._blankSeed = (Math.random() * 0x100000000) >>> 0;
+    const seed = this._blankSeed;
+    const blanks = this.pickBlanks(p.words, this.state.blankPct, seed); const bank = this.buildBank(p, blanks, seed);
+    // Keep the option-cache guard in sync with the bankOpts reset below (see initModes).
+    this._optLoading = {};
+    this.setState({
+      blankList: blanks, bank,
       hiddenVals: {}, hiddenReveal: {}, fillActive: null, bankFill: {},
       bankChoice: {}, bankMiss: {}, bankOpts: {}, bankMisses: 0,
       bankActive: blanks.length ? blanks[0] : null,
@@ -2650,8 +2669,10 @@ class Component extends DCLogic {
       vbvPrevBtn: navBtn((st.vbvIdx || 0) <= 0),
       vbvNextBtn: navBtn(!st.fullPassage || (st.vbvIdx || 0) >= st.fullPassage.verses.length - 1),
 
-      // ease slider (top of passage)
+      // ease slider (top of passage). A "Shuffle" button re-rolls which words are blanked
+      // at the current count; disabled at max (every word blank → nothing to vary).
       showEase, blankPct: st.blankPct, onBlankPct: this.onBlankPct, easeLabel,
+      reshuffleBlanks: this.reshuffleBlanks, shuffleBtn: navBtn(this.allBlank()),
 
       // control bars (top for typing modes, bottom for hide + word bank)
       showFooter, showTopBar, showBottomBar, footerStyle, bankBarStyle, footerInner, practicePad, navBtn,
