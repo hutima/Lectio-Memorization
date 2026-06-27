@@ -283,6 +283,9 @@
 
       copyrightOpen: st.copyrightOpen, closeCopyright: this.closeCopyright,
 
+      // about / contact-the-author modal (opened from the footer link)
+      contactOpen: st.contactOpen, openContact: this.openContact, closeContact: this.closeContact,
+
       // ESV API-token prompt (pops up when ESV is selected without a saved token)
       esvModalOpen: st.esvModalOpen, closeEsvModal: this.closeEsvModal, switchToKjvFromModal: this.switchToKjvFromModal,
       esvTokenSaved: !!st.esvToken.trim(),

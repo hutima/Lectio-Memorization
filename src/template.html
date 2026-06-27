@@ -289,6 +289,12 @@
       {{ statsView }}
     </sc-if>
 
+    <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <footer style="display:flex;justify-content:center;padding:12px 0 4px;">
+        <button onClick="{{ openContact }}" style="background:none;border:none;color:var(--muted);font:inherit;font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:6px;touch-action:manipulation;">About &amp; contact</button>
+      </footer>
+    </sc-if>
+
   </main>
 
   <sc-if value="{{ showBottomBar }}" hint-placeholder-val="{{ false }}">
@@ -468,6 +474,27 @@
           <button onClick="{{ dismissUpdate }}" style="{{ ghostBtn }}">Later</button>
           <button onClick="{{ applyUpdate }}" style="{{ primaryBtn }}">Refresh now</button>
         </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ contactOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeContact }}" style="position:fixed;inset:0;background:rgba(20,16,10,.42);z-index:50;display:flex;justify-content:center;align-items:flex-start;padding:20px;overflow:auto;">
+      <div onClick="{{ stop }}" style="background:var(--surface);border:1px solid var(--line);border-radius:18px;max-width:460px;width:100%;margin-top:46px;padding:24px;display:flex;flex-direction:column;gap:14px;box-shadow:0 18px 50px rgba(0,0,0,.25);">
+        <div style="display:flex;align-items:center;">
+          <h3 style="margin:0;font-family:'Gentium Book Plus',serif;font-size:22px;flex:1;">About &amp; contact</h3>
+          <button onClick="{{ closeContact }}" style="{{ ghostBtn }}">Close</button>
+        </div>
+        <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">This app is maintained by Timothy Hutama, an MTS student at Wycliffe College. The author makes no guarantees about the content but has made a best attempt to make sure everything is accurate.</p>
+        <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">Timothy blogs at <a href="https://definedfaith.wordpress.com/" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">definedfaith.wordpress.com</a>.</p>
+        <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">If you have comments or issues, please reach out on <a href="https://www.linkedin.com/in/timothyhutama/" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">LinkedIn</a>.</p>
+        <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">Other projects by Timothy:</p>
+        <ul style="margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:14px;line-height:1.5;color:var(--text);">
+          <li><a href="https://hutima.github.io/PCA_Ordination_Study/" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">PCA ordination study</a></li>
+          <li><a href="https://hutima.github.io/duff_study_tool/" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">Elementary NT Greek flashcards</a></li>
+          <li><a href="https://hutima.github.io/Mounce_study_tool/index.html" target="_blank" rel="noopener noreferrer" style="color:var(--accent);">Mounce Greek study tool</a></li>
+        </ul>
+        <p style="margin:0;font-size:14px;line-height:1.65;color:var(--text);">If you'd like to buy me a coffee as thanks, you can send me a gift via e-transfer to <a href="mailto:t.hutama@queensu.ca" style="color:var(--accent);">t.hutama@queensu.ca</a> or Venmo at <strong>@hutima</strong>.</p>
       </div>
     </div>
   </sc-if>
