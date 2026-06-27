@@ -21,7 +21,7 @@
     refInput: 'Psalms 23', verseCounts: {},
     loading: false, error: null, offerKjv: false,
     passage: null, mode: 'hide',
-    settingsOpen: false, copyrightOpen: false, esvModalOpen: false,
+    settingsOpen: false, copyrightOpen: false, esvModalOpen: false, contactOpen: false,
     esvToken: '', reminderOn: false,
     showHints: true, showVerseNums: true, scriptureSize: 'Comfortable', scriptureFont: 'serif',
     blankPct: 0.25, blankList: [],
@@ -948,6 +948,8 @@
   closeSettings = () => this.setState({ settingsOpen: false });
   openCopyright = () => this.setState({ copyrightOpen: true });
   closeCopyright = () => this.setState({ copyrightOpen: false });
+  openContact = () => this.setState({ contactOpen: true });
+  closeContact = () => this.setState({ contactOpen: false });
   stop = (e) => e.stopPropagation();
   onTokenChange = (e) => { const v = e.target.value; this.setState({ esvToken: v }); try { localStorage.setItem('lectio.esvToken', v); } catch (e2) {} };
   toggleReminder = async () => {
