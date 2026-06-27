@@ -1,7 +1,7 @@
 /* Lectio service worker — app-shell + font caching, plus the bundled public-domain Bible
    text (KJV/GNT/LXX + the Coverdale Psalter) for full offline use. ESV text is never cached
    here (capped at 500 verses in localStorage by the app, per its terms). */
-const CACHE = 'lectio-shell-v44';
+const CACHE = 'lectio-shell-v45';
 // Bundled scripture text (data/<dir>/<id>.json) lives in its own cache so a shell-version
 // bump never forces an 11MB re-download; bump DATA_CACHE only when the bundled text changes.
 const DATA_CACHE = 'lectio-data-v1';
